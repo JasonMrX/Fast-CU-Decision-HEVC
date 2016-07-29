@@ -2335,6 +2335,25 @@ DEBUG_STRING_FN_DECLARE(sDebug))
         // do intra prediciton 
         predIntraAng(COMPONENT_Y, uiMode, piOrg, uiStride, piPred, uiStride, tuRecurseWithPU, bAboveAvail, bLeftAvail, bUseFilter, TComPrediction::UseDPCMForFirstPassIntraEstimation(tuRecurseWithPU, uiMode));
 
+        // Jason
+        if (uiWidth == 8) {
+          printf("%d\n", modeIdx);
+          for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+              printf("%d ", piOrg[i * uiStride + j]);
+            }
+            printf("\n");
+          }
+          for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+              printf("%d ", piPred[i * uiStride + j]);
+            }
+            printf("\n");
+          }
+          printf("\n=========================\n");
+          system("pause");
+        }
+
         // use hadamard transform here
         uiSad += distParam.DistFunc(&distParam);  // DistFunc is a member of DistParam class 
 
