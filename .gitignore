@@ -1,0 +1,12 @@
+# First, ignore everything
+*
+# Now, whitelist anything that's a directory
+!*/
+# And all the code and misc needed
+!*.cpp
+!*.c
+!*.hpp
+!*.h
+!.gitignore
+!*.md
+
