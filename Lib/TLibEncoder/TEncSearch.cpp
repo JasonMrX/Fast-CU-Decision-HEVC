@@ -2319,7 +2319,24 @@ DEBUG_STRING_FN_DECLARE(sDebug))
       m_pcRdCost->setDistParam(distParam, g_bitDepth[CHANNEL_TYPE_LUMA], piOrg, uiStride, piPred, uiStride, puRect.width, puRect.height, bUseHadamard);
       distParam.bApplyWeight = false;
 
-
+#if GET_SATD_FEATURE
+      DistParam distParamQuad[4];
+      UInt uiFeatureOffset[4] = {0, puRect.width >> 1, (puRect.height >> 1) * uiStride, (puRect.height >> 1) * uiStride + puRect.width >> 1 };
+      for (Int i = 0; i < 4; i++)
+      {
+        distParamQuad[i].bApplyWeight = false;
+        m_pcRdCost->setDistParam(
+          distParamQuad[i], 
+          g_bitDepth[CHANNEL_TYPE_LUMA], 
+          piOrg + uiFeatureOffset[i], 
+          uiStride, 
+          piPred + uiFeatureOffset[i], 
+          uiStride, 
+          puRect.width >> 1, 
+          puRect.height >> 1, 
+          true);
+      }
+#endif
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
       //    RMD
@@ -2334,25 +2351,6 @@ DEBUG_STRING_FN_DECLARE(sDebug))
 
         // do intra prediciton 
         predIntraAng(COMPONENT_Y, uiMode, piOrg, uiStride, piPred, uiStride, tuRecurseWithPU, bAboveAvail, bLeftAvail, bUseFilter, TComPrediction::UseDPCMForFirstPassIntraEstimation(tuRecurseWithPU, uiMode));
-
-        // Jason
-        if (uiWidth == 8) {
-          printf("%d\n", modeIdx);
-          for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++) {
-              printf("%d ", piOrg[i * uiStride + j]);
-            }
-            printf("\n");
-          }
-          for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++) {
-              printf("%d ", piPred[i * uiStride + j]);
-            }
-            printf("\n");
-          }
-          printf("\n=========================\n");
-          system("pause");
-        }
 
         // use hadamard transform here
         uiSad += distParam.DistFunc(&distParam);  // DistFunc is a member of DistParam class 
@@ -2369,6 +2367,15 @@ DEBUG_STRING_FN_DECLARE(sDebug))
         {
           dBestSATD = cost;
           iBestModesSATD = modeIdx;
+        }
+#endif
+
+#if GET_SATD_FEATURE
+        for (int uiFeatureIdx = 0; uiFeatureIdx < 4; uiFeatureIdx++)
+        {
+          Double costQuad = (Double)distParamQuad[uiFeatureIdx].DistFunc(&distParamQuad[uiFeatureIdx]) + (Double)iModeBits * sqrtLambdaForFirstPass;
+          assert(uiMode < 35);
+          pcCU->setSATDFeature(uiMode, uiFeatureIdx, costQuad);
         }
 #endif
 

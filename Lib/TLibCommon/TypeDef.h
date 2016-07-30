@@ -130,6 +130,10 @@
 
 #endif;   // macro YS end 
 
+// JX's macros
+#define MODIFICATION_JX   1
+#define GET_SATD_FEATURE  1
+
 #ifdef DEBUG_STRING
   #define DEBUG_STRING_PASS_INTO(name) , name
   #define DEBUG_STRING_PASS_INTO_OPTIONAL(name, exp) , (exp==0)?0:name

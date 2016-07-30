@@ -134,6 +134,10 @@ private:
   Double        m_dSATD;
 #endif 
 
+#if MODIFICATION_JX
+  Double m_adSATDFeatures[35][4];
+#endif
+
 
 
   // -------------------------------------------------------------------------------------------------------------------
@@ -256,6 +260,11 @@ public:
 
 
 #endif 
+
+#if MODIFICATION_JX
+  Void      setSATDFeature(UInt uiModeIdx, UInt uiFeatureIdx, Double dSATD) { m_adSATDFeatures[uiModeIdx][uiFeatureIdx] = dSATD; }
+  Double    getSATDFeature(UInt uiModeIdx, UInt uiFeatureIdx) { return m_adSATDFeatures[uiModeIdx][uiFeatureIdx]; }
+#endif
 
 
 
