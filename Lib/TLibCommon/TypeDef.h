@@ -132,6 +132,7 @@
 
 // JX's macros
 #define MODIFICATION_JX   1
+#define GET_MV_FEATURE    0
 #define GET_SATD_FEATURE  1
 
 #ifdef DEBUG_STRING

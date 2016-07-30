@@ -1558,6 +1558,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 #if OUTPUT_INSIGHTDATA  // TMV
        // Jason Feature
 
+#if GET_MV_FEATURE
        TMVFeature* feature_x = getTMVFeature(rpcBestCU);
 
        for (int iFiltIdx = 0; iFiltIdx < 5; iFiltIdx++){
@@ -1568,6 +1569,20 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
        }
        g_InsightDataSet[uiDepth] << endl;
 			 delete feature_x;
+#endif
+
+#if GET_SATD_FEATURE
+       
+       for (UInt uiFIdx = 0; uiFIdx < 4; uiFIdx++)
+       {
+         g_InsightDataSet[uiDepth] << endl;
+         for (UInt uiMode = 0; uiMode < 35; uiMode++)
+         {
+           g_InsightDataSet[uiDepth] << rpcBestCU->getSATDFeature(uiMode, uiFIdx) << '\t';
+         }
+       }
+       g_InsightDataSet[uiDepth] << endl;
+#endif
 				
 #endif
 
