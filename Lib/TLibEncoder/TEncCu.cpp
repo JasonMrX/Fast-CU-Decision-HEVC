@@ -1048,6 +1048,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 							  DEBUG_STRING_PASS_INTO(sDebug));
 
 #if MODIFICATION_YS			// gather the data after the RDO
+
 						  if (bSkipRDO){
 							  rpcBestCU->getTotalCost() = MAX_DOUBLE;
 						  }
@@ -1570,19 +1571,6 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
        g_InsightDataSet[uiDepth] << endl;
 			 delete feature_x;
 #endif
-
-#if GET_SATD_FEATURE
-       
-       for (UInt uiFIdx = 0; uiFIdx < 4; uiFIdx++)
-       {
-         g_InsightDataSet[uiDepth] << endl;
-         for (UInt uiMode = 0; uiMode < 35; uiMode++)
-         {
-           g_InsightDataSet[uiDepth] << rpcBestCU->getSATDFeature(uiMode, uiFIdx) << '\t';
-         }
-       }
-       g_InsightDataSet[uiDepth] << endl;
-#endif
 				
 #endif
 
@@ -2076,38 +2064,54 @@ Void TEncCu::xCheckRDCostInter( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, 
   xCheckBestMode(rpcBestCU, rpcTempCU, uhDepth DEBUG_STRING_PASS_INTO(sDebug) DEBUG_STRING_PASS_INTO(sTest));
 }
 
-Bool TEncCu::xCheckRDCostIntra( 
+Bool TEncCu::xCheckRDCostIntra(
 #if  SKIP_RDO_ENABLE			  
-								Bool			&bSkipRDO, //SY added
+  Bool			&bSkipRDO, //SY added
 #endif	
-								TComDataCU *&rpcBestCU,
-                                TComDataCU *&rpcTempCU,
-                                Double      &cost,
-                                PartSize     eSize,
-								Bool        bMakeChange
-                                DEBUG_STRING_FN_DECLARE(sDebug) )
+  TComDataCU *&rpcBestCU,
+  TComDataCU *&rpcTempCU,
+  Double      &cost,
+  PartSize     eSize,
+  Bool        bMakeChange
+  DEBUG_STRING_FN_DECLARE(sDebug))
 {
 
   DEBUG_STRING_NEW(sTest)
 
-  UInt uiDepth = rpcTempCU->getDepth( 0 );
+    UInt uiDepth = rpcTempCU->getDepth(0);
   // initialize rpcTempCU 
-  rpcTempCU->setSkipFlagSubParts( false, 0, uiDepth );
-  rpcTempCU->setPartSizeSubParts( eSize, 0, uiDepth );
-  rpcTempCU->setPredModeSubParts( MODE_INTRA, 0, uiDepth );
-  rpcTempCU->setChromaQpAdjSubParts( rpcTempCU->getCUTransquantBypass(0) ? 0 : m_ChromaQpAdjIdc, 0, uiDepth );
+  rpcTempCU->setSkipFlagSubParts(false, 0, uiDepth);
+  rpcTempCU->setPartSizeSubParts(eSize, 0, uiDepth);
+  rpcTempCU->setPredModeSubParts(MODE_INTRA, 0, uiDepth);
+  rpcTempCU->setChromaQpAdjSubParts(rpcTempCU->getCUTransquantBypass(0) ? 0 : m_ChromaQpAdjIdc, 0, uiDepth);
   Pel resiLuma[NUMBER_OF_STORED_RESIDUAL_TYPES][MAX_CU_SIZE * MAX_CU_SIZE];
-  Bool Partition=0;
+  Bool Partition = 0;
 #if  SKIP_RDO_ENABLE
   bSkipRDO = false;
   CurrentState  currentState = getCurrentState(uiDepth);
 #endif
   // do the intra prediction for Luma
-  m_pcPredSearch->estIntraPredLumaQT( 
+  m_pcPredSearch->estIntraPredLumaQT(
 #if SKIP_RDO_ENABLE
-	  bSkipRDO,
+    bSkipRDO,
 #endif	  
-	  rpcTempCU, m_ppcOrigYuv[uiDepth], m_ppcPredYuvTemp[uiDepth], m_ppcResiYuvTemp[uiDepth], m_ppcRecoYuvTemp[uiDepth], resiLuma DEBUG_STRING_PASS_INTO(sTest) );
+    rpcTempCU, m_ppcOrigYuv[uiDepth], m_ppcPredYuvTemp[uiDepth], m_ppcResiYuvTemp[uiDepth], m_ppcRecoYuvTemp[uiDepth], resiLuma DEBUG_STRING_PASS_INTO(sTest));
+
+#if GET_SATD_FEATURE
+  if (eSize == SIZE_2Nx2N)
+  {
+    // only output once
+    for (UInt uiFIdx = 0; uiFIdx < 4; uiFIdx++)
+    {
+      g_InsightDataSet[uiDepth] << endl;
+      for (UInt uiMode = 0; uiMode < 35; uiMode++)
+      {
+        g_InsightDataSet[uiDepth] << rpcTempCU->getSATDFeature(uiMode, uiFIdx) << '\t';
+      }
+    }
+    g_InsightDataSet[uiDepth] << endl;
+  }
+#endif
 
 #if SKIP_RDO_ENABLE
   if (bSkipRDO && currentState == Testing){
