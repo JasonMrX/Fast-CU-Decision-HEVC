@@ -22,7 +22,7 @@ using namespace std;
 //////////////////////////////////// Macro Definiton 
 
 #define OBSERVATION			0
-#define OUTPUT_INSIGHTDATA  0
+#define OUTPUT_INSIGHTDATA  1
 #define NEW_FEATURESYSTEM   0
 #define PARAMETER_SELECTION 0
 
