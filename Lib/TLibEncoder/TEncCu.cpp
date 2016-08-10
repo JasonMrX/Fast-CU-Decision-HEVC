@@ -2157,6 +2157,7 @@ Bool TEncCu::xCheckRDCostIntra(
 #if GET_SATD_FEATURE
   if (eSize == SIZE_2Nx2N)
   {
+    rpcTempCU->calSATDRatio();
 	  // only output once
 	  for (UInt uiFIdx = 0; uiFIdx < 4; uiFIdx++)
 	  {
@@ -2166,7 +2167,8 @@ Bool TEncCu::xCheckRDCostIntra(
 			  g_InsightDataSet[uiDepth] << rpcTempCU->getSATDFeature(uiMode, uiFIdx) << '\t';
 		  }
 	  }
-	 // g_InsightDataSet[uiDepth] << endl;
+	  g_InsightDataSet[uiDepth] << endl;
+    g_InsightDataSet[uiDepth] << rpcTempCU->getSATDRatio() << endl;
   }
 #endif
 #endif

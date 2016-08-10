@@ -3413,4 +3413,28 @@ UInt TComDataCU::getCoefScanIdx(const UInt uiAbsPartIdx, const UInt uiWidth, con
   }
 }
 
+#if MODIFICATION_JX
+
+Void TComDataCU::calSATDRatio()
+{
+  Double dSumMin = 0;
+  Double dMinSum = INT_MAX;
+  Double adMinSumSub[4] = { INT_MAX, INT_MAX, INT_MAX, INT_MAX };
+  for (Int i = 0; i < 35; i++) {
+    Double tmpSum = m_adSATDFeatures[i][0] + m_adSATDFeatures[i][1] + m_adSATDFeatures[i][2] + m_adSATDFeatures[i][3];
+    dMinSum = dMinSum > tmpSum ? tmpSum : dMinSum;
+    for (Int j = 0; j < 4; j++) {
+      adMinSumSub[j] = adMinSumSub[j] > m_adSATDFeatures[i][j] ? m_adSATDFeatures[i][j] : adMinSumSub[j];
+    }
+  }
+  for (Int i = 0; i < 4; i++) {
+    dSumMin += adMinSumSub[i];
+  }
+  m_dSATDRatio = dSumMin / dMinSum;
+  //printf("%lf \n", m_dSATDRatio);
+  //system("pause");
+  assert(m_dSATDRatio >= 0 && m_dSATDRatio <= 1);
+}
+
+#endif
 //! \}
