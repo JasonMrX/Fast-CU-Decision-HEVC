@@ -1,3 +1,6 @@
+#ifndef _GLOBAL_YS_
+#define _GLOBAL_YS_
+
 #include <iostream>  
 #include <fstream>  
 #include <iterator>  
@@ -17,9 +20,11 @@
 //////////////////////////////////// Macro Definiton 
 
 #define OBSERVATION			0
-#define OUTPUT_INSIGHTDATA  1
+#define OUTPUT_INSIGHTDATA  0
 #define NEW_FEATURESYSTEM   0
 #define PARAMETER_SELECTION 0
+
+#define TIME_SYSTEM         1
 
 #define NUM_CU_DEPTH		4
 #define NUM_MODELTYPE		15
@@ -51,6 +56,7 @@ enum FeatureType
 	NewFeature,
 	OBF_SATD,
 	OBF_SATD_RDCost,
+	SATD_RDCost,
 	NoneFeature
 };
 
@@ -75,7 +81,9 @@ enum ModelType
 	BayesDecision,
 	Assistant_Skip,
 	BayesNew,
+	eBayesModel,
 	NoneModel
+
 };
 
 enum ResultType{
@@ -110,18 +118,53 @@ extern double g_W_N[3];
 ///////////////////////////////////////////////////////////////////////////
 extern Mat*         g_TrainingDataMat; // [uiDepth]
 extern ofstream*	g_TrainingDataSet;
+#define NUM_FEATURE	           4;
 
 extern FILE*		g_pFile_Performance; //= fopen("precison.txt", "at");
 extern ofstream*	g_InsightDataSet;
 ///////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////
+// Time system 
+///////////////////////////////////////////////////////////////////////////
+#if TIME_SYSTEM  // Extern 
+extern FILE*  g_pFile_TimeSystem;//   fopen("SummaryTotal_Time.txt", "at");
 
+extern Double g_dTime_Total;
+
+extern Double g_dTime_xCompressCU[4];
+
+//CheckRDcostIntra
+extern Double g_dTime_xCheckRDCostIntra_2Nx2N[4];
+extern Double g_dTime_xCheckRDCostIntra_NxN;
+
+extern Double g_dTime_estIntraPredLumaQT_2Nx2N[4];
+extern Double g_dTime_estIntraPredLumaQT_NxN;
+// RMD
+extern Double g_dTime_RMD_2Nx2N[4];
+extern Double g_dTime_RMD_NxN;
+
+// SATD
+extern Double g_dTime_SATD_2Nx2N[4];
+extern Double g_dTime_SATD_NxN;
+
+//RDO
+extern Double g_dTime_RDO_2Nx2N[4];
+extern Double g_dTime_RDO_NxN;
+
+// Overall 
+extern Double g_dTime_Training[4];
+extern Double g_dTime_FeatureExtraction[4];
+extern Double g_dTime_Prediction[4];
+
+
+#endif
 
 
 #if SVM_ONLINE_TRAIN //  extern declaration of global model objects 
 extern model* **	model_linear; // [uiDepth][FeatureType]
-extern CvSVM*		CvSVM_model;
-extern CvRTrees*	CvRTrees_model;
+extern CvSVM**		model_CvSVM;
+extern CvRTrees**	model_CvRTrees;
 #endif
 
 
@@ -160,6 +203,7 @@ extern Int        g_iSourceHeight;
 extern Double     g_dBitRate;
 extern Double     g_dYUVPSNR;
 extern Double     g_dET;
+extern Int		  g_iFrameToBeEncoded;
 
 extern Int			g_iPOC;  
 extern Int*			g_iP;   //  [uiDepth]
@@ -189,4 +233,6 @@ extern Bool			g_bDepthException;
 // variables for SkipRDO rhis are couted during testing 
 extern UInt			g_uiNumCU_Decision[NUM_CU_DEPTH][NUM_DECISIONTYPE];
 
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#endif

@@ -52,7 +52,7 @@
 // ====================================================================================================================
 
 
-#if MODIFICATION_YS 
+#if MODIFICATION_YS  //getSkipNeighb(UInt uiDep)
  Bool TComDataCU::getSkipNeighb(UInt uiDep){
 	  if (!m_pCtuLeft || !m_pCtuAbove)
 		  return false;
@@ -70,14 +70,14 @@
 
 TComDataCU::TComDataCU()
 {
-#if MODIFICATION_YS  //assign NULL to data of upper CU
-	// data of upper CU
+#if MODIFICATION_YS  // TComDataCU()
+// data of upper CU
  m_iIntraMode_UpperCU			= -1;
  m_dTotalCost_UpperCU			= NULL;
  m_uiTotalDistortion_UpperCU	= NULL;
  m_uiTotalBits_UpperCU			= NULL;
-
- m_dSATD = 0.0;
+ m_CUDecision                   = 0;
+ m_dJ0_RMD                      = 0.0;
 #endif 
   m_pcPic              = NULL;
   m_pcSlice            = NULL;
@@ -473,8 +473,9 @@ Bool TComDataCU::isLastSubCUOfCtu(const UInt absPartIdx)
  */
 Void TComDataCU::initCtu( TComPic* pcPic, UInt ctuRsAddr )
 {
-#if MODIFICATION_YS
-	m_dSATD = 0.0;
+#if MODIFICATION_YS // initCtu
+	m_CUDecision = 0;
+	m_dJ0_RMD = 0.0;
 #endif
   m_pcPic              = pcPic;
   m_pcSlice            = pcPic->getSlice(pcPic->getCurrSliceIdx());
@@ -596,8 +597,9 @@ Void TComDataCU::initEstData( const UInt uiDepth, const Int qp, const Bool bTran
   m_uiTotalBits        = 0;
   m_uiTotalBins        = 0;
 
-#if MODIFICATION_YS
-  m_dSATD = 0.0;
+#if MODIFICATION_YS // initEstData
+  m_CUDecision = 0;
+  m_dJ0_RMD = 0.0;
 #endif
   UChar uhWidth  = g_uiMaxCUWidth  >> uiDepth;
   UChar uhHeight = g_uiMaxCUHeight >> uiDepth;
@@ -667,8 +669,9 @@ Void TComDataCU::initSubCU( TComDataCU* pcCU, UInt uiPartUnitIdx, UInt uiDepth, 
 {
   assert( uiPartUnitIdx<4 );
 
-#if MODIFICATION_YS
-  m_dSATD = 0.0;
+#if MODIFICATION_YS  //initSubCU
+  m_CUDecision = 0;
+  m_dJ0_RMD = 0.0;
 #endif
 
   UInt uiPartOffset = ( pcCU->getTotalNumPart()>>2 )*uiPartUnitIdx;

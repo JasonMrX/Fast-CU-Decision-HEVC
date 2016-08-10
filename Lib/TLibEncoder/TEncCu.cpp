@@ -52,10 +52,6 @@ using namespace std;
 
 
 
-#if SVM_ONLINE_TRAIN //  extern declaration of global model objects 
-extern CvSVM*		CvSVM_model;
-extern CvRTrees*    CvRTrees_model;
-#endif
 
 
 #if CREAT_CDM
@@ -462,7 +458,39 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth )
 #endif
 {
+
+#if TIME_SYSTEM
+	clock_t clockStart_xCompressCU= clock();
+#endif
 	DEBUG_STRING_NEW(sDebug)
+#if SVM_YS
+		//// Model 1 
+		Double* feature_1 = NULL;
+	Int featureLength_1 = 0;
+	FeatureFormat featureFormat_1 = Unknown;
+	FeatureType	  featureType_1 = g_mainFeatureType;
+	ModelType     modelType_1 = g_mainModelType;
+	featureFormat_1 = getFeatureFormat(modelType_1);
+	Double label_predict_1 = 0;
+	////  Model 2
+	Double* feature_2 = NULL;
+	Int featureLength_2 = 0;
+	FeatureFormat featureFormat_2 = Unknown;
+	FeatureType featureType_2 = g_featureType_2;
+	ModelType modelType_2 = g_modelType_2;
+	featureFormat_2 = getFeatureFormat(modelType_2);
+	Double label_predict_2 = 0;
+	//// Model 3
+	Double* feature_3 = NULL;
+	Int featureLength_3 = 0;
+	FeatureFormat featureFormat_3 = Unknown;
+	FeatureType featureType_3 = g_featureType_3;
+	ModelType modelType_3 = g_modelType_3;
+	featureFormat_3 = getFeatureFormat(modelType_3);
+	Double label_predict_3 = 0;
+	// 
+#endif
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //    SS0 
 ///////////////////////////////////////////////// Normal HM data /////////////////////////////////////////////////////////////////////
@@ -470,12 +498,16 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 	UInt uiRPelX = uiLPelX + rpcBestCU->getWidth(0) - 1;
 	UInt uiTPelY = rpcBestCU->getCUPelY();
 	UInt uiBPelY = uiTPelY + rpcBestCU->getHeight(0) - 1;
+
 	TComPic* pcPic = rpcBestCU->getPic();
 	m_ppcOrigYuv[uiDepth]->copyFromPicYuv(pcPic->getPicYuvOrg(), rpcBestCU->getCtuRsAddr(), rpcBestCU->getZorderIdxInCtu());
+
 	TComPicYuv* dataOrg = pcPic->getPicYuvOrg();
 	Pel* pOrg = dataOrg->getAddr(COMPONENT_Y);
 	UInt uiStrideOrg = dataOrg->getStride(COMPONENT_Y);
+
 	Int BlockSize = g_uiMaxCUWidth >> uiDepth;
+
 	const UInt uiFrameWidth = dataOrg->getWidth(COMPONENT_Y);
 	const UInt uiFrameHeight = dataOrg->getHeight(COMPONENT_Y);
 
@@ -484,12 +516,14 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 	Bool    doNotBlockPu = true;
 	Bool    earlyDetectionSkipMode = false;
 	Bool	bBoundary = false;
+
 	//YS add set the bBoundary early
 	bBoundary = !((uiRPelX < rpcBestCU->getSlice()->getSPS()->getPicWidthInLumaSamples()) &&
 		(uiBPelY < rpcBestCU->getSlice()->getSPS()->getPicHeightInLumaSamples()));
+
 	Int	iBaseQP = xComputeQP(rpcBestCU, uiDepth);
-	Int	iMinQP;
-	Int iMaxQP;
+	Int	iMinQP = g_iQP;
+	Int iMaxQP = g_iQP;
 	Bool isAddLowestQP = false;
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//		SS1
@@ -500,10 +534,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 	Double	d2NBits = -1;
 	Int		iIntraMode = -1;
 	Double	Feature_Scale_Factor = 400;
-	// Training State
-	Bool bIsTraining = g_iPOC%g_iP[uiDepth] < g_iT[uiDepth];
-	Bool bIsVerifying = (g_iPOC%g_iP[uiDepth] >= g_iT[uiDepth] && g_iPOC%g_iP[uiDepth] < g_iT[uiDepth] + g_iV[uiDepth]);
-	Bool bIsTesting = g_iPOC%g_iP[uiDepth] >= g_iT[uiDepth] + g_iV[uiDepth];
+
 	CurrentState currentState = getCurrentState(uiDepth);
 	///////////////////////////////////////////////////////////////////////////
 	// core control flag
@@ -519,22 +550,22 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 	Bool    bPartition_Do = false;
 	Bool    bPartition_True = false;
 
-	short	 Num_OBF = 0;   // number of OBF in current CU
+	short	 N_OBF = 0;   // number of OBF in current CU
 	Int	 Ndx_LeftCol = 0;
 	Int	 Ndx_UpperRow = 0;
 	UInt uiHasOutlier = 0;
 
 
 	Int	 N_Outlier = 0;   // number of Binarilized Outlier in current CU
-	Int	 NumOutlier_LeftCol = 0;   // number of Binarilized Outlier in current CU
-	Int	 NumOutlier_UpperRow = 0;   // number of Binarilized Outlier in current CU
+	Int	 NumOutlier_LeftCol = 0;   
+	Int	 NumOutlier_UpperRow = 0;   
 	Double	J0 = MAX_DOUBLE;     // the RD cost of current depth  
 	Double	J1 = 0;              // the RD cost of next depth 
 	//  get the QP of current CU
 	g_iQP = iBaseQP;
 
 #if OUTPUT_INSIGHTDATA  // POC X Y
-	if (bIsTraining&&!bBoundary){
+	if (currentState==Training&&!bBoundary){
 		//cout << g_iPOC;
 		g_InsightDataSet[uiDepth] <<(int)g_iPOC << '\t';
 		g_InsightDataSet[uiDepth] << uiLPelX << '\t';
@@ -591,51 +622,37 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 			for (int x = 0; x < BlockSize / 4; x++)
 			{
 				if (pOBF[x + uiLPelX / 4 + (uiTPelY / 4 + y)*uiStrideOBF] > 0){
-					Num_OBF++;
+					N_OBF++;
 					N_Outlier += pOBF[x + uiLPelX / 4 + (uiTPelY / 4 + y)*uiStrideOBF];
 				}
 			} // end forloop
 		}
-		uiHasOutlier = Num_OBF>0 ? 1 : 0;
-		N_NonZeroFeature = Num_OBF;
+		uiHasOutlier = N_OBF>0 ? 1 : 0;
+		N_NonZeroFeature = N_OBF;
 #if SVM_YS
 	} // endif 
 #endif
 #endif //GEN_OUTLIER
+	rpcBestCU->setNumOutlier(N_Outlier);
+	rpcTempCU->setNumOutlier(N_Outlier);
+
+	rpcBestCU->setNumOBF(N_OBF);
+	rpcTempCU->setNumOBF(N_OBF);
+
+
 
 #if OUTPUT_INSIGHTDATA  // N_outlier
-	if (bIsTraining&&!bBoundary){
+	if (currentState==Training&&!bBoundary){
 		g_InsightDataSet[uiDepth] << N_Outlier << '\t';  // RDCost 2Nx2N
 	}
 #endif
 
-#if SVM_YS
-	//// Model 1 
-	Double* feature_1 = NULL;
-	Int featureLength_1 = 0;
-	FeatureFormat featureFormat_1 = Unknown;
-	FeatureType	  featureType_1 = g_mainFeatureType;
-	ModelType     modelType_1 = g_mainModelType;
-	featureFormat_1 = getFeatureFormat(modelType_1);
-	Double label_predict_1 = 0;
-	////  Model 2
-	Double* feature_2 = NULL;
-	Int featureLength_2 = 0;
-	FeatureFormat featureFormat_2 = Unknown;
-	FeatureType featureType_2 = g_featureType_2;
-	ModelType modelType_2 = g_modelType_2;
-	featureFormat_2 = getFeatureFormat(modelType_2);
-	Double label_predict_2 = 0;
-	//// Model 3
-	Double* feature_3 = NULL;
-	Int featureLength_3 = 0;
-	FeatureFormat featureFormat_3 = Unknown;
-	FeatureType featureType_3 = g_featureType_3;
-	ModelType modelType_3 = g_modelType_3;
-	featureFormat_3 = getFeatureFormat(modelType_3);
-	Double label_predict_3 = 0;
-	// 
-#endif
+
+
+#if NEW_FEATURESYSTEM
+	Double* featureVector;
+	Int featureLength;
+#endif 
 
 
 
@@ -681,8 +698,9 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 #endif  // endif : SVM_PREDICTION_ENABLE
 
 #if  TOGGLE_NONUSE
-  const UInt numberValidComponents = rpcBestCU->getPic()->getNumberValidComponents();
 
+  const UInt numberValidComponents = rpcBestCU->getPic()->getNumberValidComponents();
+	/*
   if( (g_uiMaxCUWidth>>uiDepth) >= (g_uiMaxCUWidth >> ( rpcTempCU->getSlice()->getPPS()->getMaxCuDQPDepth())) )
   {
     Int idQP = m_pcEncCfg->getMaxDeltaQP();
@@ -702,9 +720,9 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
   }
 
   // transquant-bypass (TQB) processing loop variable initialisation ---
-
+*/
   const Int lowestQP = iMinQP; // For TQB, use this QP which is the lowest non TQB QP tested (rather than QP'=0) - that way delta QPs are smaller, and TQB can be tested at all CU levels.
-
+/*
   if ( (rpcTempCU->getSlice()->getPPS()->getTransquantBypassEnableFlag()) )
   {
     isAddLowestQP = true; // mark that the first iteration is to cost TQB mode.
@@ -714,16 +732,16 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
       iMaxQP = iMinQP;
     }
   }
+*/
 
   TComSlice * pcSlice = rpcTempCU->getPic()->getSlice(rpcTempCU->getPic()->getCurrSliceIdx());
   // We need to split, so don't try these modes.
 
-
-
-
   if ((uiRPelX < rpcBestCU->getSlice()->getSPS()->getPicWidthInLumaSamples()) &&
 	  (uiBPelY < rpcBestCU->getSlice()->getSPS()->getPicHeightInLumaSamples()))
   {
+
+/*	  
 	  for (Int iQP = iMinQP; iQP <= iMaxQP; iQP++)
 	  {
 		  const Bool bIsLosslessMode = isAddLowestQP && (iQP == iMinQP);
@@ -736,11 +754,6 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 		  m_ChromaQpAdjIdc = 0;
 		  if (pcSlice->getUseChromaQpAdj())
 		  {
-			  /* Pre-estimation of chroma QP based on input block activity may be performed
-			   * here, using for example m_ppcOrigYuv[uiDepth] */
-			  /* To exercise the current code, the index used for adjustment is based on
-			   * block position
-			   */
 			  Int lgMinCuSize = pcSlice->getSPS()->getLog2MinCodingBlockSize() +
 				  std::max<Int>(0, pcSlice->getSPS()->getLog2DiffMaxMinCodingBlockSize() - Int(pcSlice->getPPS()->getMaxCuChromaQpAdjDepth()));
 			  m_ChromaQpAdjIdc = ((uiLPelX >> lgMinCuSize) + (uiTPelY >> lgMinCuSize)) % (pcSlice->getPPS()->getChromaQpAdjTableSize() + 1);
@@ -779,15 +792,17 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 		  {
 			  iQP = iMinQP;
 		  }
+	
 	  }
-
+  */
 
 	  if (!earlyDetectionSkipMode)
 	  {
 		  for (Int iQP = iMinQP; iQP <= iMaxQP; iQP++)
 		  {
+			 
 			  const Bool bIsLosslessMode = isAddLowestQP && (iQP == iMinQP); // If lossless, then iQP is irrelevant for subsequent modules.
-
+ /*
 			  if (bIsLosslessMode)
 			  {
 				  iQP = lowestQP;
@@ -941,7 +956,10 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 #endif
 				  }
 			  }   //rpcBestCU->getSlice()->getSliceType() != I_SLICE
-#endif 
+  
+  */
+			  
+#endif		
 			  // do normal intra modes
 			  // speedup for inter frames
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -949,7 +967,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 ///////////////////////////////////////////////////////////	Decision Making //////////////////////////////////
 
 #if SVM_DECISION_ENABLE		
-			  if (bIsTesting || bIsVerifying && g_bModelSwitch[Assistant_Skip] == true)   // Assistant 
+			  if ((currentState==Testing || currentState==Verifying) && g_bModelSwitch[Assistant_Skip] == true)   // Assistant 
 			  {
 				  Bool bSkipNeighb = false;
 				  Decision[Assistant_Skip] = Unsure;
@@ -966,17 +984,17 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 ////////////////////////////////////////////////////////////////////////////
 			  if (g_bDecisionSwitch[uiDepth][modelType_1][TerminateCU] == true)
 			  {
-				 bEarlyTerminate = (bIsTesting && Decision[modelType_1] == TerminateCU);
+				 bEarlyTerminate = (currentState==Testing && Decision[modelType_1] == TerminateCU);
 			  }
 			  if (g_bDecisionSwitch[uiDepth][modelType_1][Skip2Nx2N] == true)
 			  {
-				 bSkip2Nx2N = (bIsTesting && Decision[modelType_1] == Skip2Nx2N);
+				 bSkip2Nx2N = (currentState==Testing && Decision[modelType_1] == Skip2Nx2N);
 			  }
 
 
 
 		//  Trust assistant 
-			  if (bIsTesting && Decision[Assistant_Skip] == Skip2Nx2N && uiDepth >= SVM_MinDepth && uiDepth <= SVM_MaxDepth && !bBoundary && g_bTrustAssistantSkip)
+			  if (currentState==Testing && Decision[Assistant_Skip] == Skip2Nx2N && uiDepth >= SVM_MinDepth && uiDepth <= SVM_MaxDepth && !bBoundary && g_bTrustAssistantSkip)
 			  {
 				  bSkip2Nx2N = true;  // always trust the decsion of Assistant ?
 			  }		
@@ -1039,6 +1057,9 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 //////////////////////////////////////////// Check 2Nx2N	////////////////////////////////////
 					  if (!bSkip2Nx2N)
 					  {
+#if TIME_SYSTEM
+						  clock_t clockStart_xCheckRDCostIntra = clock();
+#endif
 						  Bool bChange = xCheckRDCostIntra(
 #if  SKIP_RDO_ENABLE			  
 							  bSkipRDO,
@@ -1046,9 +1067,11 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 							  rpcBestCU, rpcTempCU, intraCost, SIZE_2Nx2N
 	  
 							  DEBUG_STRING_PASS_INTO(sDebug));
+#if TIME_SYSTEM
+						  g_dTime_xCheckRDCostIntra_2Nx2N[uiDepth] += (Double)(clock() - clockStart_xCheckRDCostIntra) / CLOCKS_PER_SEC;
+#endif
 
 #if MODIFICATION_YS			// gather the data after the RDO
-
 						  if (bSkipRDO){
 							  rpcBestCU->getTotalCost() = MAX_DOUBLE;
 						  }
@@ -1079,7 +1102,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 						  J0 = rpcBestCU->getTotalCost();
 					  }
 #if OUTPUT_INSIGHTDATA  // 2Nx2N SATD  RDcost IPM 
-					  if (bIsTraining&&!bBoundary){
+					  if (currentState==Training&&!bBoundary){
 						  g_InsightDataSet[uiDepth] << rpcBestCU->getSATD() << '\t';
 						  g_InsightDataSet[uiDepth] << rpcBestCU->getTotalCost() << '\t';  // RDCost 2Nx2N
 					      g_InsightDataSet[uiDepth] << (Int)rpcBestCU->getIntraDir(CHANNEL_TYPE_LUMA,0)<< '\t';  // RDCost 2Nx2N
@@ -1092,7 +1115,6 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 						  {
 						  case Training:
 								  if (g_bModelSwitch[modelType_2])FormFeatureVector(rpcBestCU, uiDepth, feature_2, featureLength_2, featureType_2);
-
 								  if (g_bModelSwitch[modelType_3])FormFeatureVector(rpcBestCU, uiDepth, feature_3, featureLength_3, featureType_3);
 							  break;
 						  case Verifying:
@@ -1138,13 +1160,14 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 
 
 //////////////////////////////////////////// Check NxN	//////////////////////////////////////
-				  rpcTempCU->initEstData(uiDepth, iQP, bIsLosslessMode);
+
 				  if (uiDepth == g_uiMaxCUDepth - g_uiAddCUDepth)  // Only when Depth equal MaxDepth 
 				  {
 					  if (!bEarlyTerminate)
 					  {
 						  if (rpcTempCU->getWidth(0) > (1 << rpcTempCU->getSlice()->getSPS()->getQuadtreeTULog2MinSize()))
 						  {
+				           rpcTempCU->initEstData(uiDepth, iQP, bIsLosslessMode);
 							  Double tmpIntraCost;  //YS add
 
 							  //  CheckBestMode will exhange the data , rpcBestCU always hold the smaller one
@@ -1165,13 +1188,20 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 							  }
 #else
 
+#if TIME_SYSTEM
+							  clock_t clockStart_xCheckRDCostIntra = clock();
+#endif
 							 bPartition_True = xCheckRDCostIntra(
 #if  SKIP_RDO_ENABLE			  
 								 bSkipRDO, //SY added
 #endif			 								 			 
 								 rpcBestCU, rpcTempCU, tmpIntraCost, SIZE_NxN
 								 DEBUG_STRING_PASS_INTO(sDebug));  //  CheckBestMode will exhange the data  
-#endif				 
+#endif		
+
+#if TIME_SYSTEM
+							 g_dTime_xCheckRDCostIntra_NxN += (Double)(clock() - clockStart_xCheckRDCostIntra) / CLOCKS_PER_SEC;
+#endif
 							 Int BestSATD_NxN;
 							 // Set the J1 for MaxDepth
 							  if (bPartition_True){
@@ -1184,7 +1214,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 								  BestSATD_NxN = rpcTempCU->getSATD();
 							  }
 #if OUTPUT_INSIGHTDATA  // NxN  SATD RDCost
-							  if (bIsTraining&&!bBoundary){
+							  if (currentState==Training&&!bBoundary){
 								  g_InsightDataSet[3] << BestSATD_NxN << '\t';
 								  g_InsightDataSet[3] << J1 << '\t';  // RDCost NxN
 
@@ -1192,13 +1222,15 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 #endif
 
 							  intraCost = std::min(intraCost, tmpIntraCost);
-							  rpcTempCU->initEstData(uiDepth, iQP, bIsLosslessMode);
+							  //rpcTempCU->initEstData(uiDepth, iQP, bIsLosslessMode);
 							  bNxNChecked = true;
 						  }
 					  }
 				  }  // if end if (uiDepth == g_uiMaxCUDepth - g_uiAddCUDepth) NxN
 			  } // if end
 ////////////////////////////////////////////////////////////////////////  Mode Checked go SubCUs  //////////////////////////////////////////
+
+/*
 #if  TOGGLE_NONUSE
 			  //test PCM
 			  if (pcPic->getSlice(0)->getSPS()->getUsePCM()
@@ -1218,29 +1250,33 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 				  iQP = iMinQP;
 			  }
 #endif
+*/
 		  }
 	  } //  end  if (!earlyDetectionSkipMode)
 	  
 //////////////////////////////////////////////////////////////////////////////////////// finalize the RDcost of BestCU
 	  if (rpcBestCU->getTotalCost() != MAX_DOUBLE) // YS add this if statement 
 	  {
+
 	  m_pcEntropyCoder->resetBits();
 	  m_pcEntropyCoder->encodeSplitFlag(rpcBestCU, 0, uiDepth, true);  
 	  rpcBestCU->getTotalBits() += m_pcEntropyCoder->getNumberOfWrittenBits(); // split bits
 	  rpcBestCU->getTotalBins() += ((TEncBinCABAC *)((TEncSbac*)m_pcEntropyCoder->m_pcEntropyCoderIf)->getEncBinIf())->getBinsCoded();
 	  rpcBestCU->getTotalCost() = m_pcRdCost->calcRdCost(rpcBestCU->getTotalBits(), rpcBestCU->getTotalDistortion());
+
 	  }
+
 	  if (uiDepth < (g_uiMaxCUDepth - g_uiAddCUDepth)){ // for Depth 0 1 2
 		  J0 = rpcBestCU->getTotalCost();       // the bits here may be different with bits before 
 	  }
 #if OUTPUT_INSIGHTDATA   // depth==3 JBest Label
-		  if (uiDepth==3  && bIsTraining&&!bBoundary){
+		  if (uiDepth==3  && currentState==Training&&!bBoundary){
 			  g_InsightDataSet[3] << rpcBestCU->getTotalCost() << '\t';  // RDCost 2Nx2N
 			  g_InsightDataSet[3] << bPartition_True << '\t';
 		  }
 #endif
 #if NEW_FEATURESYSTEM
-		  if (uiDepth == 3 && bIsTraining && !bBoundary){
+		  if (uiDepth == 3 && currentState==Training && !bBoundary){
 			  g_TrainingDataSet[3] << bPartition_True<< '\t';
 		  }
 #endif
@@ -1255,6 +1291,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 		  bSubBranch = true;
 	  }
 #endif
+
 	  if (bEarlyTerminate)
 	  {
 		  bSubBranch = false;
@@ -1276,6 +1313,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
   }
 
 
+/*
 #if  TOGGLE_NONUSE
   // copy orginal YUV samples to PCM buffer
   if( rpcBestCU->isLosslessCoded(0) && (rpcBestCU->getIPCMFlag(0) == false))
@@ -1311,183 +1349,188 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
   {
     iMaxQP = iMinQP; // If all TUs are forced into using transquant bypass, do not loop here.
   }
+#endif
+*/
 
-
+#if TIME_SYSTEM // End of xcompressCU 
+  g_dTime_xCompressCU[uiDepth] += (Double)(clock() - clockStart_xCompressCU) / CLOCKS_PER_SEC;
 #endif
 
  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  //		SS6		
  //////////////////////////////////////////  Go SubCUs  /////////////////////////////////////////////////////////////////
-
 	// recursively call the compressCU
-  for (Int iQP=iMinQP; iQP<=iMaxQP; iQP++)
-  {
-    const Bool bIsLosslessMode = false; // False at this level. Next level down may set it to true.
+  if (bSubBranch && uiDepth < g_uiMaxCUDepth - g_uiAddCUDepth){
+	  for (Int iQP = iMinQP; iQP <= iMaxQP; iQP++)
+	  {
+		  const Bool bIsLosslessMode = false; // False at this level. Next level down may set it to true.
+		  rpcTempCU->initEstData(uiDepth, iQP, bIsLosslessMode);
+		  if (bSubBranch && uiDepth < g_uiMaxCUDepth - g_uiAddCUDepth)
+		  {
+			  UChar       uhNextDepth = uiDepth + 1;
+			  TComDataCU* pcSubBestPartCU = m_ppcBestCU[uhNextDepth];
 
-    rpcTempCU->initEstData( uiDepth, iQP, bIsLosslessMode );
-    if( bSubBranch && uiDepth < g_uiMaxCUDepth - g_uiAddCUDepth )
-    {
-      UChar       uhNextDepth         = uiDepth+1;
-      TComDataCU* pcSubBestPartCU     = m_ppcBestCU[uhNextDepth];
-
-      TComDataCU* pcSubTempPartCU     = m_ppcTempCU[uhNextDepth];
-      DEBUG_STRING_NEW(sTempDebug)
-	// loop four subCUs 
-      for ( UInt uiPartUnitIdx = 0; uiPartUnitIdx < 4; uiPartUnitIdx++ )
-      {
-        pcSubBestPartCU->initSubCU( rpcTempCU, uiPartUnitIdx, uhNextDepth, iQP );           // clear sub partition datas or init.
-        pcSubTempPartCU->initSubCU( rpcTempCU, uiPartUnitIdx, uhNextDepth, iQP );           // clear sub partition datas or init.
-        if( ( pcSubBestPartCU->getCUPelX() < pcSlice->getSPS()->getPicWidthInLumaSamples() ) && ( pcSubBestPartCU->getCUPelY() < pcSlice->getSPS()->getPicHeightInLumaSamples() ) )
-        {
-          if ( 0 == uiPartUnitIdx) //initialize RD with previous depth buffer
-          {
-            m_pppcRDSbacCoder[uhNextDepth][CI_CURR_BEST]->load(m_pppcRDSbacCoder[uiDepth][CI_CURR_BEST]);
-          }
-          else
-          {
-            m_pppcRDSbacCoder[uhNextDepth][CI_CURR_BEST]->load(m_pppcRDSbacCoder[uhNextDepth][CI_NEXT_BEST]);
-          }
+			  TComDataCU* pcSubTempPartCU = m_ppcTempCU[uhNextDepth];
+			  DEBUG_STRING_NEW(sTempDebug)
+				  // loop four subCUs 
+			  for (UInt uiPartUnitIdx = 0; uiPartUnitIdx < 4; uiPartUnitIdx++)
+			  {
+				  pcSubBestPartCU->initSubCU(rpcTempCU, uiPartUnitIdx, uhNextDepth, iQP);           // clear sub partition datas or init.
+				  pcSubTempPartCU->initSubCU(rpcTempCU, uiPartUnitIdx, uhNextDepth, iQP);           // clear sub partition datas or init.
+				  if ((pcSubBestPartCU->getCUPelX() < pcSlice->getSPS()->getPicWidthInLumaSamples()) && (pcSubBestPartCU->getCUPelY() < pcSlice->getSPS()->getPicHeightInLumaSamples()))
+				  {
+					  if (0 == uiPartUnitIdx) //initialize RD with previous depth buffer
+					  {
+						  m_pppcRDSbacCoder[uhNextDepth][CI_CURR_BEST]->load(m_pppcRDSbacCoder[uiDepth][CI_CURR_BEST]);
+					  }
+					  else
+					  {
+						  m_pppcRDSbacCoder[uhNextDepth][CI_CURR_BEST]->load(m_pppcRDSbacCoder[uhNextDepth][CI_NEXT_BEST]);
+					  }
 #if MODIFICATION_YS
-		  pcSubBestPartCU->setIntraMode_UpperCU(iIntraMode);
-		  pcSubTempPartCU->setIntraMode_UpperCU(iIntraMode);
+					  pcSubBestPartCU->setIntraMode_UpperCU(iIntraMode);
+					  pcSubTempPartCU->setIntraMode_UpperCU(iIntraMode);
 #endif
 #if AMP_ENC_SPEEDUP
-          DEBUG_STRING_NEW(sChild)
-          if ( !rpcBestCU->isInter(0) )
-          {
-            xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), NUMBER_OF_PART_SIZES );
-          }
-          else
-          {
-			  cout << "fuck xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), rpcBestCU->getPartitionSize(0) )  ";
-            xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), rpcBestCU->getPartitionSize(0) );
-          }
-          DEBUG_STRING_APPEND(sTempDebug, sChild)
+					  DEBUG_STRING_NEW(sChild)
+					  if (!rpcBestCU->isInter(0))
+					  {
+						  xCompressCU(pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), NUMBER_OF_PART_SIZES);
+					  }
+					  else
+					  {
+						  cout << "fuck xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), rpcBestCU->getPartitionSize(0) )  ";
+						  xCompressCU(pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), rpcBestCU->getPartitionSize(0));
+					  }
+					  DEBUG_STRING_APPEND(sTempDebug, sChild)
 #else
-          xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth );  // recursively compress CU in next depth
+					  xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth );  // recursively compress CU in next depth
 #endif
 
-          rpcTempCU->copyPartFrom( pcSubBestPartCU, uiPartUnitIdx, uhNextDepth );         // Keep best part data to current temporary data.
-          xCopyYuv2Tmp( pcSubBestPartCU->getTotalNumPart()*uiPartUnitIdx, uhNextDepth );
-        }  // if end 
-        else
-        {
-		 // statement true,at the end row of image
-          pcSubBestPartCU->copyToPic( uhNextDepth );
-          rpcTempCU->copyPartFrom( pcSubBestPartCU, uiPartUnitIdx, uhNextDepth );
-        }
-      }  // for loop end :loop four subCUs
+					  rpcTempCU->copyPartFrom(pcSubBestPartCU, uiPartUnitIdx, uhNextDepth);         // Keep best part data to current temporary data.
+					  xCopyYuv2Tmp(pcSubBestPartCU->getTotalNumPart()*uiPartUnitIdx, uhNextDepth);
+				  }  // if end 
+				  else
+				  {
+					  // statement true,at the end row of image
+					  pcSubBestPartCU->copyToPic(uhNextDepth);
+					  rpcTempCU->copyPartFrom(pcSubBestPartCU, uiPartUnitIdx, uhNextDepth);
+				  }
+			  }  // for loop end :loop four subCUs
 
-      if( !bBoundary )
-      {
-        m_pcEntropyCoder->resetBits();
-        m_pcEntropyCoder->encodeSplitFlag( rpcTempCU, 0, uiDepth, true );
+			  if (!bBoundary)
+			  {
+				  m_pcEntropyCoder->resetBits();
+				  m_pcEntropyCoder->encodeSplitFlag(rpcTempCU, 0, uiDepth, true);
 
-        rpcTempCU->getTotalBits() += m_pcEntropyCoder->getNumberOfWrittenBits(); // split bits
-        rpcTempCU->getTotalBins() += ((TEncBinCABAC *)((TEncSbac*)m_pcEntropyCoder->m_pcEntropyCoderIf)->getEncBinIf())->getBinsCoded();
-      }
-	  // calculate the current RD cost of rpcTempCU
-      rpcTempCU->getTotalCost()  = m_pcRdCost->calcRdCost( rpcTempCU->getTotalBits(), rpcTempCU->getTotalDistortion() );
+				  rpcTempCU->getTotalBits() += m_pcEntropyCoder->getNumberOfWrittenBits(); // split bits
+				  rpcTempCU->getTotalBins() += ((TEncBinCABAC *)((TEncSbac*)m_pcEntropyCoder->m_pcEntropyCoderIf)->getEncBinIf())->getBinsCoded();
+			  }
+			  // calculate the current RD cost of rpcTempCU
+			  rpcTempCU->getTotalCost() = m_pcRdCost->calcRdCost(rpcTempCU->getTotalBits(), rpcTempCU->getTotalDistortion());
 
-      if( (g_uiMaxCUWidth>>uiDepth) == (g_uiMaxCUWidth >> ( rpcTempCU->getSlice()->getPPS()->getMaxCuDQPDepth())) && rpcTempCU->getSlice()->getPPS()->getUseDQP())
-      {
-        Bool hasResidual = false;
-        for( UInt uiBlkIdx = 0; uiBlkIdx < rpcTempCU->getTotalNumPart(); uiBlkIdx ++)
-        {
-          if( (     rpcTempCU->getCbf(uiBlkIdx, COMPONENT_Y)
-                || (rpcTempCU->getCbf(uiBlkIdx, COMPONENT_Cb) && (numberValidComponents > COMPONENT_Cb))
-                || (rpcTempCU->getCbf(uiBlkIdx, COMPONENT_Cr) && (numberValidComponents > COMPONENT_Cr)) ) )
-          {
-            hasResidual = true;
-            break;
-          }
-        }
+			  if ((g_uiMaxCUWidth >> uiDepth) == (g_uiMaxCUWidth >> (rpcTempCU->getSlice()->getPPS()->getMaxCuDQPDepth())) && rpcTempCU->getSlice()->getPPS()->getUseDQP())
+			  {
+				  Bool hasResidual = false;
+				  for (UInt uiBlkIdx = 0; uiBlkIdx < rpcTempCU->getTotalNumPart(); uiBlkIdx++)
+				  {
+					  if ((rpcTempCU->getCbf(uiBlkIdx, COMPONENT_Y)
+						  || (rpcTempCU->getCbf(uiBlkIdx, COMPONENT_Cb) && (numberValidComponents > COMPONENT_Cb))
+						  || (rpcTempCU->getCbf(uiBlkIdx, COMPONENT_Cr) && (numberValidComponents > COMPONENT_Cr))))
+					  {
+						  hasResidual = true;
+						  break;
+					  }
+				  }
 
-        UInt uiTargetPartIdx = 0;
-        if ( hasResidual )
-        {
+				  UInt uiTargetPartIdx = 0;
+				  if (hasResidual)
+				  {
 #if !RDO_WITHOUT_DQP_BITS
-          m_pcEntropyCoder->resetBits();
-          m_pcEntropyCoder->encodeQP( rpcTempCU, uiTargetPartIdx, false );
-          rpcTempCU->getTotalBits() += m_pcEntropyCoder->getNumberOfWrittenBits(); // dQP bits
-          rpcTempCU->getTotalBins() += ((TEncBinCABAC *)((TEncSbac*)m_pcEntropyCoder->m_pcEntropyCoderIf)->getEncBinIf())->getBinsCoded();
-		  // calculate the current RD cost of rpcTempCU
-          rpcTempCU->getTotalCost()  = m_pcRdCost->calcRdCost( rpcTempCU->getTotalBits(), rpcTempCU->getTotalDistortion() );
+					  m_pcEntropyCoder->resetBits();
+					  m_pcEntropyCoder->encodeQP(rpcTempCU, uiTargetPartIdx, false);
+					  rpcTempCU->getTotalBits() += m_pcEntropyCoder->getNumberOfWrittenBits(); // dQP bits
+					  rpcTempCU->getTotalBins() += ((TEncBinCABAC *)((TEncSbac*)m_pcEntropyCoder->m_pcEntropyCoderIf)->getEncBinIf())->getBinsCoded();
+					  // calculate the current RD cost of rpcTempCU
+					  rpcTempCU->getTotalCost() = m_pcRdCost->calcRdCost(rpcTempCU->getTotalBits(), rpcTempCU->getTotalDistortion());
 #endif
-          Bool foundNonZeroCbf = false;
-          rpcTempCU->setQPSubCUs( rpcTempCU->getRefQP( uiTargetPartIdx ), 0, uiDepth, foundNonZeroCbf );
-          assert( foundNonZeroCbf );
-        }
-        else
-        {
-          rpcTempCU->setQPSubParts( rpcTempCU->getRefQP( uiTargetPartIdx ), 0, uiDepth ); // set QP to default QP
-        }
-      }
+					  Bool foundNonZeroCbf = false;
+					  rpcTempCU->setQPSubCUs(rpcTempCU->getRefQP(uiTargetPartIdx), 0, uiDepth, foundNonZeroCbf);
+					  assert(foundNonZeroCbf);
+				  }
+				  else
+				  {
+					  rpcTempCU->setQPSubParts(rpcTempCU->getRefQP(uiTargetPartIdx), 0, uiDepth); // set QP to default QP
+				  }
+			  }
 
-      m_pppcRDSbacCoder[uhNextDepth][CI_NEXT_BEST]->store(m_pppcRDSbacCoder[uiDepth][CI_TEMP_BEST]);
+			  m_pppcRDSbacCoder[uhNextDepth][CI_NEXT_BEST]->store(m_pppcRDSbacCoder[uiDepth][CI_TEMP_BEST]);
 
-      // TODO: this does not account for the slice bytes already written. See other instances of FIXED_NUMBER_OF_BYTES
-      Bool isEndOfSlice        = rpcBestCU->getSlice()->getSliceMode()==FIXED_NUMBER_OF_BYTES
-                                 && (rpcBestCU->getTotalBits()>rpcBestCU->getSlice()->getSliceArgument()<<3);
-      Bool isEndOfSliceSegment = rpcBestCU->getSlice()->getSliceSegmentMode()==FIXED_NUMBER_OF_BYTES
-                                 && (rpcBestCU->getTotalBits()>rpcBestCU->getSlice()->getSliceSegmentArgument()<<3);
-      if(isEndOfSlice||isEndOfSliceSegment)
-      {
-		  // the condition is never true  YS comment 
-        if (m_pcEncCfg->getCostMode()==COST_MIXED_LOSSLESS_LOSSY_CODING)
-        {
-          rpcBestCU->getTotalCost()=rpcTempCU->getTotalCost() + (1.0 / m_pcRdCost->getLambda());
-        }
-        else
-        {
-          rpcBestCU->getTotalCost()=rpcTempCU->getTotalCost()+1;
-        }
-      }
+			  // TODO: this does not account for the slice bytes already written. See other instances of FIXED_NUMBER_OF_BYTES
+			  Bool isEndOfSlice = rpcBestCU->getSlice()->getSliceMode() == FIXED_NUMBER_OF_BYTES
+				  && (rpcBestCU->getTotalBits() > rpcBestCU->getSlice()->getSliceArgument() << 3);
+			  Bool isEndOfSliceSegment = rpcBestCU->getSlice()->getSliceSegmentMode() == FIXED_NUMBER_OF_BYTES
+				  && (rpcBestCU->getTotalBits() > rpcBestCU->getSlice()->getSliceSegmentArgument() << 3);
+			  if (isEndOfSlice || isEndOfSliceSegment)
+			  {
+				  // the condition is never true  YS comment 
+				  if (m_pcEncCfg->getCostMode() == COST_MIXED_LOSSLESS_LOSSY_CODING)
+				  {
+					  rpcBestCU->getTotalCost() = rpcTempCU->getTotalCost() + (1.0 / m_pcRdCost->getLambda());
+				  }
+				  else
+				  {
+					  rpcBestCU->getTotalCost() = rpcTempCU->getTotalCost() + 1;
+				  }
+			  }
 
-	   if (bSkip2Nx2N || bSkipRDO){
-	  // if all use the prediction set the current RD cost to MAX_DOUBLE and go to next depth directly 
-	     rpcBestCU->getTotalCost() = MAX_DOUBLE;  // this is necessary
-	  }
-	  J0= rpcBestCU->getTotalCost();
-	  J1= rpcTempCU->getTotalCost();
+			  if (bSkip2Nx2N || bSkipRDO){
+				  // if all use the prediction set the current RD cost to MAX_DOUBLE and go to next depth directly 
+				  rpcBestCU->getTotalCost() = MAX_DOUBLE;  // this is necessary
+			  }
+			  J0 = rpcBestCU->getTotalCost();
+			  J1 = rpcTempCU->getTotalCost();
 
-	 Bool	tempbool = rpcBestCU->getTotalCost() > rpcTempCU->getTotalCost();
-	 Double BestCost = rpcBestCU->getTotalCost();
+			  Bool	tempbool = rpcBestCU->getTotalCost() > rpcTempCU->getTotalCost();
+			  Double BestCost = rpcBestCU->getTotalCost();
 
-	 bPartition_True = xCheckBestMode(rpcBestCU, rpcTempCU, uiDepth DEBUG_STRING_PASS_INTO(sDebug) DEBUG_STRING_PASS_INTO(sTempDebug) DEBUG_STRING_PASS_INTO(false)); // RD compare current larger prediction
-	 bPartition_Do = bPartition_True;
+			  bPartition_True = xCheckBestMode(rpcBestCU, rpcTempCU, uiDepth DEBUG_STRING_PASS_INTO(sDebug) DEBUG_STRING_PASS_INTO(sTempDebug) DEBUG_STRING_PASS_INTO(false)); // RD compare current larger prediction
+			  bPartition_Do = bPartition_True;
 #if OUTPUT_INSIGHTDATA  // J0 J1 JBest Label 
-	 if (bIsTraining&&!bBoundary){
-		 g_InsightDataSet[uiDepth] << J0 << '\t';  
-		 g_InsightDataSet[uiDepth] << J1 << '\t'; 
-		 g_InsightDataSet[uiDepth] << rpcBestCU->getTotalCost() << '\t';
-		 g_InsightDataSet[uiDepth] << bPartition_True << '\t';
-	 }
+			  if (currentState==Training&&!bBoundary){
+				  g_InsightDataSet[uiDepth] << J0 << '\t';
+				  g_InsightDataSet[uiDepth] << J1 << '\t';
+				  g_InsightDataSet[uiDepth] << rpcBestCU->getTotalCost() << '\t';
+				  g_InsightDataSet[uiDepth] << bPartition_True << '\t';
+			  }
 #endif
 
 #if NEW_FEATURESYSTEM 
-	 if (bIsTraining&&!bBoundary){
-	 g_TrainingDataSet[uiDepth] << bPartition_True<< '\t';
-	 }
+			  if (currentState==Training&&!bBoundary){
+				  g_TrainingDataSet[uiDepth] << bPartition_True << '\t';
+			  }
 #endif
-	 if ((J0 > J1) != bPartition_True && !bBoundary){
-		 cout << "error !  ";
-		  cout << uiLPelX<< ' ' << uiTPelY << ' ' << uiDepth << endl;
-		  cout << b2Nx2NChecked << ' ' << J0 << ' ' << J1 << ' ' << BestCost << ' ' << bPartition_True << endl;
-	  }
-    } // endif : (bSubBranch && uiDepth < g_uiMaxCUDepth - g_uiAddCUDepth )
-
-
-  }  // for loop end : (Int iQP=iMinQP; iQP<=iMaxQP; iQP++) end
-  
+			  if ((J0 > J1) != bPartition_True && !bBoundary){
+				  cout << "error !  ";
+				  cout << uiLPelX << ' ' << uiTPelY << ' ' << uiDepth << endl;
+				  cout << b2Nx2NChecked << ' ' << J0 << ' ' << J1 << ' ' << BestCost << ' ' << bPartition_True << endl;
+			  }
+		  } // endif : (bSubBranch && uiDepth < g_uiMaxCUDepth - g_uiAddCUDepth )
+	  }  // for loop end : (Int iQP=iMinQP; iQP<=iMaxQP; iQP++) end
+  }
 
 
 
  //////////////////////////////////////////////  SubCUs finished  ///////////////////////////////////////////////////////////////////////////////
+
+  
+
+
+
  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  //		SS6		
  //////////////////////////////////////////  Updating  Verification Data /////////////////////////////////////////////////////////////////
-	  if (!bBoundary && bIsVerifying)
+	  if (!bBoundary && currentState==Verifying)
 	  {
 		for (int i = 0; i < NUM_MODELTYPE; i++){
 			if (g_bModelSwitch[i] == true){
@@ -1523,7 +1566,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 
 
 #if SVM_TRAININGSET_SAVE  // Output training set to file 
-	 if (bIsTraining && !bBoundary){
+	 if (currentState==Training && !bBoundary){
 		// for (int i = 0; i < NUM_MODELTYPE; i++){
 			 if (true){
 				 ofstream* TrainingSet_1;
@@ -1552,26 +1595,27 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 					 if (g_bModelSwitch[modelType_2])OutputFeatureVector(TrainingSet_2, feature_2, featureLength_2, label, uiDepth, getFeatureFormat(modelType_2));
 					 if (g_bModelSwitch[modelType_3])OutputFeatureVector(TrainingSet_3, feature_3, featureLength_3, label, uiDepth, getFeatureFormat(modelType_3));
 					 g_iSampleNumber[uiDepth][featureType_1]++;
+
+					 if (g_bModelSwitch[BayesNan] == true){
+						 g_cBayesModel_Nan.updateModel(uiDepth, J0, J1, N_OBF);
+					 }
 			 }
 
 
-
-#if OUTPUT_INSIGHTDATA  // TMV
-       // Jason Feature
-
+#if OUTPUT_INSIGHTDATA  // JX Feature
 #if GET_MV_FEATURE
-       TMVFeature* feature_x = getTMVFeature(rpcBestCU);
+			 TMVFeature* feature_x = getTMVFeature(rpcBestCU);
 
-       for (int iFiltIdx = 0; iFiltIdx < 5; iFiltIdx++){
-         g_InsightDataSet[uiDepth] << endl;
+			 for (int iFiltIdx = 0; iFiltIdx < 5; iFiltIdx++){
+				 g_InsightDataSet[uiDepth] << endl;
 				 for (int j = 0; j < 26;j++){
-						 g_InsightDataSet[uiDepth] << feature_x->m_adFeature[iFiltIdx][j] << '\t';
+					 g_InsightDataSet[uiDepth] << feature_x->m_adFeature[iFiltIdx][j] << '\t';
 				 }
-       }
-       g_InsightDataSet[uiDepth] << endl;
+			 }
+			 g_InsightDataSet[uiDepth] << endl;
 			 delete feature_x;
 #endif
-				
+
 #endif
 
 #if OUTPUT_INSIGHTDATA  // OBF
@@ -2064,54 +2108,69 @@ Void TEncCu::xCheckRDCostInter( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, 
   xCheckBestMode(rpcBestCU, rpcTempCU, uhDepth DEBUG_STRING_PASS_INTO(sDebug) DEBUG_STRING_PASS_INTO(sTest));
 }
 
-Bool TEncCu::xCheckRDCostIntra(
+Bool TEncCu::xCheckRDCostIntra( 
 #if  SKIP_RDO_ENABLE			  
-  Bool			&bSkipRDO, //SY added
+								Bool			&bSkipRDO, //SY added
 #endif	
-  TComDataCU *&rpcBestCU,
-  TComDataCU *&rpcTempCU,
-  Double      &cost,
-  PartSize     eSize,
-  Bool        bMakeChange
-  DEBUG_STRING_FN_DECLARE(sDebug))
+								TComDataCU *&rpcBestCU,
+                                TComDataCU *&rpcTempCU,
+                                Double      &cost,
+                                PartSize     eSize,
+								Bool        bMakeChange
+                                DEBUG_STRING_FN_DECLARE(sDebug) )
 {
 
   DEBUG_STRING_NEW(sTest)
 
-    UInt uiDepth = rpcTempCU->getDepth(0);
+  UInt uiDepth = rpcTempCU->getDepth( 0 );
   // initialize rpcTempCU 
-  rpcTempCU->setSkipFlagSubParts(false, 0, uiDepth);
-  rpcTempCU->setPartSizeSubParts(eSize, 0, uiDepth);
-  rpcTempCU->setPredModeSubParts(MODE_INTRA, 0, uiDepth);
-  rpcTempCU->setChromaQpAdjSubParts(rpcTempCU->getCUTransquantBypass(0) ? 0 : m_ChromaQpAdjIdc, 0, uiDepth);
+  rpcTempCU->setSkipFlagSubParts( false, 0, uiDepth );
+  rpcTempCU->setPartSizeSubParts( eSize, 0, uiDepth );
+  rpcTempCU->setPredModeSubParts( MODE_INTRA, 0, uiDepth );
+  rpcTempCU->setChromaQpAdjSubParts( rpcTempCU->getCUTransquantBypass(0) ? 0 : m_ChromaQpAdjIdc, 0, uiDepth );
   Pel resiLuma[NUMBER_OF_STORED_RESIDUAL_TYPES][MAX_CU_SIZE * MAX_CU_SIZE];
-  Bool Partition = 0;
+  Bool Partition=0;
 #if  SKIP_RDO_ENABLE
   bSkipRDO = false;
   CurrentState  currentState = getCurrentState(uiDepth);
 #endif
   // do the intra prediction for Luma
-  m_pcPredSearch->estIntraPredLumaQT(
+#if TIME_SYSTEM
+  clock_t clockStart_estIntraPredLumaQT = clock();
+#endif
+  m_pcPredSearch->estIntraPredLumaQT( 
 #if SKIP_RDO_ENABLE
-    bSkipRDO,
+	  bSkipRDO,
 #endif	  
-    rpcTempCU, m_ppcOrigYuv[uiDepth], m_ppcPredYuvTemp[uiDepth], m_ppcResiYuvTemp[uiDepth], m_ppcRecoYuvTemp[uiDepth], resiLuma DEBUG_STRING_PASS_INTO(sTest));
+	  rpcTempCU, m_ppcOrigYuv[uiDepth], m_ppcPredYuvTemp[uiDepth], m_ppcResiYuvTemp[uiDepth], m_ppcRecoYuvTemp[uiDepth], resiLuma DEBUG_STRING_PASS_INTO(sTest) );
 
+#if TIME_SYSTEM
+  if (eSize == SIZE_2Nx2N){
+	  g_dTime_estIntraPredLumaQT_2Nx2N[uiDepth] += (Double)(clock() - clockStart_estIntraPredLumaQT) / CLOCKS_PER_SEC;
+  }
+  else{
+	  g_dTime_estIntraPredLumaQT_NxN += (Double)(clock() - clockStart_estIntraPredLumaQT) / CLOCKS_PER_SEC;
+  }
+#endif
+
+#if OUTPUT_INSIGHTDATA
 #if GET_SATD_FEATURE
   if (eSize == SIZE_2Nx2N)
   {
-    // only output once
-    for (UInt uiFIdx = 0; uiFIdx < 4; uiFIdx++)
-    {
-      g_InsightDataSet[uiDepth] << endl;
-      for (UInt uiMode = 0; uiMode < 35; uiMode++)
-      {
-        g_InsightDataSet[uiDepth] << rpcTempCU->getSATDFeature(uiMode, uiFIdx) << '\t';
-      }
-    }
-    g_InsightDataSet[uiDepth] << endl;
+	  // only output once
+	  for (UInt uiFIdx = 0; uiFIdx < 4; uiFIdx++)
+	  {
+		  //g_InsightDataSet[uiDepth] << endl;
+		  for (UInt uiMode = 0; uiMode < 35; uiMode++)
+		  {
+			  g_InsightDataSet[uiDepth] << rpcTempCU->getSATDFeature(uiMode, uiFIdx) << '\t';
+		  }
+	  }
+	 // g_InsightDataSet[uiDepth] << endl;
   }
 #endif
+#endif
+
 
 #if SKIP_RDO_ENABLE
   if (bSkipRDO && currentState == Testing){

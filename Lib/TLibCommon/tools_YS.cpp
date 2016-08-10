@@ -2,27 +2,29 @@
 
 
 void YSGlobalControl(){
-	g_mainModelType = Naive;
-	g_mainFeatureType = N_OBF;
+	//g_mainModelType = SVM_0; g_mainFeatureType = OBF;
+	g_mainModelType = Naive; g_mainFeatureType = N_OBF;
+	//g_mainModelType = RTS_OpenCV; g_mainFeatureType = BOutlier;
+	//g_mainModelType = BayesNan; g_mainFeatureType = N_OBF;
 	g_C[0] = 0.000002;
 	g_W_P[0] = 1;
 	g_W_N[0] = 1;
 
-	g_modelType_2 = SVM_1;
-	g_featureType_2 = OBF_SATD;
+	g_modelType_2		= SVM_1;
+	g_featureType_2 = NewFeature_1;
 	g_C[1] = 0.000002;
-	g_W_P[1] = 1;
-	g_W_N[1] = 50;
+	g_W_P[1] = 2;
+	g_W_N[1] = 1;
 
-	g_modelType_3	  = SVM_2;
-	g_featureType_3   = OBF_SATD_RDCost;
+	g_modelType_3 = SVM_2;
+	g_featureType_3 = NewFeature_2;
 	g_C[2] = 0.000002;
 	g_W_P[2] = 50;
 	g_W_N[2] = 1;
 
 	g_bTrustAssistantSkip = false; 
 	g_bMultiModel		  = false;
-	g_bDepthException	  = false;
+	g_bDepthException	  = true;
 
 	if (g_bMultiModel){
 		g_bModelSwitch[g_mainModelType] = true;
@@ -36,8 +38,11 @@ void YSGlobalControl(){
 		//g_bModelSwitch[SVM_0]= true;
 		g_bModelSwitch[Naive] = true;
 		//g_bModelSwitch[Assistant_Skip] = true;
-		// g_bModelSwitch[SVM_1] = true;
-		// g_bModelSwitch[SVM_2] = true;
+		g_bModelSwitch[SVM_1] = true;
+	    g_bModelSwitch[SVM_2] = true;
+		//g_bModelSwitch[RTS_OpenCV] = true;
+		
+		//g_bModelSwitch[BayesNan] = true;
 	}
 	setArray(g_iP, NUM_CU_DEPTH, 60);
 	setArray(g_iT, NUM_CU_DEPTH, 2);
@@ -63,12 +68,38 @@ void openOutputFiles(){
 	g_pFile_Performance = fopen("summary_Performance.txt", "at");
 	fprintf(g_pFile_Performance, "\tYUV:\t");
 	fprintf(g_pFile_Performance, (const char*)g_pchInputFile);
+
+	// training period information
 	fprintf(g_pFile_Performance, "\tT:\t");
 	fprintf(g_pFile_Performance, "%d\t",g_iT[0]);
 	fprintf(g_pFile_Performance, "\tV:\t");
 	fprintf(g_pFile_Performance, "%d\t", g_iV[0]);
 	fprintf(g_pFile_Performance, "\tQP:\t");
 	fprintf(g_pFile_Performance, "%d\n",g_iQP);
+	// 
+	string parameter;
+	parameter += "\tC:\t";
+	parameter += to_string(g_C[0]);
+	parameter += "\t";
+	parameter += to_string(g_C[1]);
+	parameter += "\t";
+	parameter += to_string(g_C[2]);
+	parameter += "\n";
+	parameter += "\tW_P:\t";
+	parameter += to_string(g_W_P[0]);
+	parameter += "\t";
+	parameter += to_string(g_W_P[1]);
+	parameter += "\t";
+	parameter += to_string(g_W_P[2]);
+	parameter += "\n";
+	parameter += "\tW_N:\t";
+	parameter += to_string(g_W_N[0]);
+	parameter += "\t";
+	parameter += to_string(g_W_N[1]);
+	parameter += "\t";
+	parameter += to_string(g_W_N[2]);
+	parameter += "\n";
+	fprintf(g_pFile_Performance, (const char*)parameter.c_str());
 	// List title 
 	string listTitle;
 	listTitle += "\tuiDepth\t";
@@ -110,6 +141,7 @@ void resetYSGlobal(Int uiDepth)
 	clear2dArray<bool>(g_bDecisionSwitch[uiDepth], NUM_MODELTYPE, NUM_DECISIONTYPE);
 
 #if PARAMETER_SELECTION
+
 	if (uiDepth == 0 && g_iPOC!=0)
 	{
 	g_C[0] *=10;
@@ -124,8 +156,33 @@ void resetYSGlobal(Int uiDepth)
 	g_C[2] = 0.000002;
 	g_W_P[2] += 5;
 	g_W_N[2] = 1;
+
+	string parameter;
+	parameter += "\tC:\t";
+	parameter += to_string(g_C[0]);
+	parameter += "\t";
+	parameter += to_string(g_C[1]);
+	parameter += "\t";
+	parameter += to_string(g_C[2]);
+	parameter += "\n";
+	parameter += "\tW_P:\t";
+	parameter += to_string(g_W_P[0]);
+	parameter += "\t";
+	parameter += to_string(g_W_P[1]);
+	parameter += "\t";
+	parameter += to_string(g_W_P[2]);
+	parameter += "\n";
+	parameter += "\tW_N:\t";
+	parameter += to_string(g_W_N[0]);
+	parameter += "\t";
+	parameter += to_string(g_W_N[1]);
+	parameter += "\t";
+	parameter += to_string(g_W_N[2]);
+	parameter += "\n";
+	fprintf(g_pFile_Performance, (const char*)parameter.c_str());
 	}
 #endif
+	g_cBayesModel_Nan.clearModel();
 }
 
 void createYSGlobal(){  // allocate mamery for pointers 
@@ -141,6 +198,8 @@ void createYSGlobal(){  // allocate mamery for pointers
 
 	create3dFileArray(g_TrainingSet, NUM_CU_DEPTH, NUM_FEATUREFORMAT, NUM_FEATURETYPE);
 	create2dFileArray(model_linear, NUM_CU_DEPTH, NUM_FEATURETYPE);
+	create2dFileArray(model_CvSVM, NUM_CU_DEPTH, NUM_FEATURETYPE);
+	create2dFileArray(model_CvRTrees, NUM_CU_DEPTH, NUM_FEATURETYPE);
 	create2dArray(g_iFeatureLength, NUM_CU_DEPTH, NUM_FEATURETYPE);
 	create2dArray(g_iSampleNumber, NUM_CU_DEPTH, NUM_FEATURETYPE);
 
@@ -148,12 +207,13 @@ void createYSGlobal(){  // allocate mamery for pointers
 	//create3dFileArray(g_dSATD, NUM_CU_DEPTH, 2, 2);
 
 	//////////////////// Analytical output files 
-#if OUTPUT_INSIGHTDATA	
+#if OUTPUT_INSIGHTDATA	// create file array
 	g_InsightDataSet = new ofstream[NUM_CU_DEPTH];
 #endif
-#if NEW_FEATURESYSTEM
+#if NEW_FEATURESYSTEM // create file array
 	g_TrainingDataSet = new ofstream[NUM_CU_DEPTH];
 #endif
+
 	///////////////////
 }
 
@@ -173,7 +233,11 @@ void deleteYSGlobal(){
 
 	// 2D
 	delete3dArray(g_TrainingSet, NUM_CU_DEPTH, NUM_FEATUREFORMAT, NUM_FEATURETYPE);
+
 	delete2dArray(model_linear, NUM_CU_DEPTH, NUM_FEATURETYPE);
+	delete2dArray(model_CvSVM, NUM_CU_DEPTH, NUM_FEATURETYPE);
+	delete2dArray(model_CvRTrees, NUM_CU_DEPTH, NUM_FEATURETYPE);
+
 	delete2dArray(g_iFeatureLength, NUM_CU_DEPTH, NUM_FEATURETYPE);
 	delete2dArray(g_iSampleNumber, NUM_CU_DEPTH, NUM_FEATURETYPE);
 
@@ -184,8 +248,156 @@ void deleteYSGlobal(){
 #if NEW_FEATURESYSTEM
 	delete[] g_TrainingDataSet;
 #endif
+	g_cBayesModel_Nan.outputModel();
 	///////////////////
 }
+
+#if TIME_SYSTEM // Definitions of Functions
+void resetTimeSystem(){
+	for (int i = 0; i < 4; i++){
+	g_dTime_xCompressCU[i] = 0;
+	//CheckRDcostIntra
+	g_dTime_xCheckRDCostIntra_2Nx2N[i] = 0;
+	//estIntraPredLumaQT
+	g_dTime_estIntraPredLumaQT_2Nx2N[i] = 0;
+	//2Nx2N
+	g_dTime_RMD_2Nx2N[i]= 0;
+	g_dTime_SATD_2Nx2N[i] = 0;
+	g_dTime_RDO_2Nx2N[i]=0;
+
+	// Overall 
+	g_dTime_Training[i]=0;
+	g_dTime_FeatureExtraction[i]=0;
+	g_dTime_Prediction[i]=0;
+	}
+
+	//CheckRDcostIntra
+	g_dTime_xCheckRDCostIntra_NxN = 0;
+	g_dTime_estIntraPredLumaQT_NxN = 0;
+	g_dTime_Total = 0;
+	//NxN
+	g_dTime_RMD_NxN  = 0;
+	g_dTime_SATD_NxN = 0;
+	g_dTime_RDO_NxN  = 0;
+}
+void printTimeSystem(){
+	g_pFile_TimeSystem = fopen("SummaryTime.txt", "at");
+	fprintf(g_pFile_TimeSystem, "\n");
+	fprintf(g_pFile_TimeSystem, "YUV:");
+	fprintf(g_pFile_TimeSystem, (const char*)g_pchInputFile);
+	fprintf(g_pFile_TimeSystem, "\tQP:%d",g_iQP);
+	fprintf(g_pFile_TimeSystem, "\tFrames:%d",g_iFrameToBeEncoded);
+
+	// training period information
+	fprintf(g_pFile_TimeSystem, "\tPeriod:%d/%d/%d", g_iT[0], g_iV[0], g_iP[0]);
+	fprintf(g_pFile_TimeSystem, "\n");
+
+
+	fprintf(g_pFile_TimeSystem, "Total Encoding Time\t%f\n", g_dTime_Total);
+
+	fprintf(g_pFile_TimeSystem, "xCompressCU: \t");
+	for (int i = 0; i < 4; i++){
+		fprintf(g_pFile_TimeSystem, "\t%5.1f%%",g_dTime_xCompressCU[i] / g_dTime_Total*100);
+	}
+	fprintf(g_pFile_TimeSystem, "\n");
+
+
+	fprintf(g_pFile_TimeSystem, "xCheckRDCost:\t");
+	for (int i = 0; i < 4; i++){
+		fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_xCheckRDCostIntra_2Nx2N[i] / g_dTime_Total * 100);
+	}
+	fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_xCheckRDCostIntra_NxN / g_dTime_Total * 100);
+	fprintf(g_pFile_TimeSystem, "\n");
+
+	fprintf(g_pFile_TimeSystem, "estIntraPred:\t");
+	for (int i = 0; i < 4; i++){
+		fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_estIntraPredLumaQT_2Nx2N[i] / g_dTime_Total * 100);
+	}
+	fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_estIntraPredLumaQT_NxN / g_dTime_Total * 100);
+	fprintf(g_pFile_TimeSystem, "\n");
+
+
+	fprintf(g_pFile_TimeSystem, "RMD:\t\t\t");
+	for (int i = 0; i < 4; i++){
+		//fprintf(g_pFile_TimeSystem, "Depth %d:\t%f\t%5.1f%%\n", i, g_dTime_xCompressCU[i], g_dTime_xCompressCU[i] / g_dTime_Total*100);
+		fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_RMD_2Nx2N[i] / g_dTime_Total * 100);
+	}
+	fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_RMD_NxN/ g_dTime_Total * 100);
+	fprintf(g_pFile_TimeSystem, "\n");
+
+	fprintf(g_pFile_TimeSystem, "RDO:\t\t\t");
+	for (int i = 0; i < 4; i++){
+		//fprintf(g_pFile_TimeSystem, "Depth %d:\t%f\t%5.1f%%\n", i, g_dTime_xCompressCU[i], g_dTime_xCompressCU[i] / g_dTime_Total*100);
+		fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_RDO_2Nx2N[i] / g_dTime_Total * 100);
+	}
+	fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_RDO_NxN / g_dTime_Total * 100);
+	fprintf(g_pFile_TimeSystem, "\n");
+
+	fprintf(g_pFile_TimeSystem, "FeatureExtract:\t\t");
+	for (int i = 0; i < 4; i++){
+		//fprintf(g_pFile_TimeSystem, "Depth %d:\t%f\t%5.1f%%\n", i, g_dTime_xCompressCU[i], g_dTime_xCompressCU[i] / g_dTime_Total*100);
+		fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_FeatureExtraction[i] / g_dTime_Total * 100);
+	}
+	fprintf(g_pFile_TimeSystem, "\n");
+
+	fprintf(g_pFile_TimeSystem, "Training:\t\t");
+	for (int i = 0; i < 4; i++){
+		//fprintf(g_pFile_TimeSystem, "Depth %d:\t%f\t%5.1f%%\n", i, g_dTime_xCompressCU[i], g_dTime_xCompressCU[i] / g_dTime_Total*100);
+		fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_Training[i] / g_dTime_Total * 100);
+	}
+	fprintf(g_pFile_TimeSystem, "\n");
+
+	fprintf(g_pFile_TimeSystem, "Prediction:\t\t");
+	for (int i = 0; i < 4; i++){
+		//fprintf(g_pFile_TimeSystem, "Depth %d:\t%f\t%5.1f%%\n", i, g_dTime_xCompressCU[i], g_dTime_xCompressCU[i] / g_dTime_Total*100);
+		fprintf(g_pFile_TimeSystem, "\t%5.1f%%", g_dTime_Prediction[i] / g_dTime_Total * 100);
+	}
+	fprintf(g_pFile_TimeSystem, "\n");
+
+	fclose(g_pFile_TimeSystem);
+}
+
+#endif
+
+//////////////////////////////////////////////////////////////////////////
+// New feature system 
+///////////////////////////////////////////////////////////////////////////
+
+
+void FormFeatureVector_NewFeatureSystem(TComDataCU*& rpcBestCU, UInt uiDepth, Double*& feature, Int& featureLength, FeatureType Type){
+
+}
+
+void OnlineTrain_NewFeatureSystem(Int uiDepth){
+
+}
+
+void FeatureProcess_NewFeatureSystem(Int uiDepth, Double*& feature, Int& featureLength, Int FeatureType){
+
+}
+
+void DoPrediction_NewFeatureSystem(UInt uiDepth, Double* feature, Int featureLength, Double& label_predict, ModelType modelType, FeatureType featureType){
+
+}
+
+
+
+
+void OutputInsightDataSet(TComDataCU*& rpcBestCU, UInt uiDepth){
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 template <typename T> void OutputFeatureVector(ofstream* file, T* feature, Int featureLength, Double label, UInt uiDepth, FeatureFormat format)
@@ -254,9 +466,7 @@ template <typename T> void OutputFeatureVector(ofstream* file, T* feature, Int f
 template void OutputFeatureVector(ofstream* file, Double* feature, Int featureLength, Double label, UInt uiDepth, FeatureFormat format);
 template void OutputFeatureVector(ofstream* file, Pel* feature, Int featureLength, Double label, UInt uiDepth, FeatureFormat format);
 
-void OutputInsightDataSet(TComDataCU*& rpcBestCU, UInt uiDepth){
 
-}
 
 
 
@@ -302,20 +512,9 @@ void FormFeatureVector(TComDataCU*& rpcBestCU, UInt uiDepth, T*& feature, Int& f
 
 
 	Int BlockSize = g_uiMaxCUWidth >> uiDepth;
-	Int Num_OBF = 0;
-	Int N_Outlier = 0;
-	for (int y = 0; y < BlockSize / 4; y++)
-	{
-		for (int x = 0; x < BlockSize / 4; x++)
-		{
-			if (pOBF[x + uiLPelX / 4 + (uiTPelY / 4 + y)*uiStrideOBF] > 0){
-				//if (pOBF[x + uiLPelX / 4 + (uiTPelY / 4 + y)*uiStrideOBF] < 0 && uiDepth == 0)
-					//cout << "X\t" << x + uiLPelX / 4 << "\tY\t" << uiTPelY / 4 + y << endl;
-				Num_OBF++;
-				N_Outlier += pOBF[x + uiLPelX / 4 + (uiTPelY / 4 + y)*uiStrideOBF];
-			}
-		} 
-	}
+
+	Int Num_Outlier = rpcBestCU->getNumOutlier();
+	Int Num_OBF		= rpcBestCU->getNumOBF();
 
 	if (Type == OBF || Type == EOBF){
 		Int NeighborExtend_OBF = 0;
@@ -622,8 +821,31 @@ void FormFeatureVector(TComDataCU*& rpcBestCU, UInt uiDepth, T*& feature, Int& f
 		//feature[featureLength - 1] =(T) RDCost;
 		
 	}
+	else if (Type == SATD_RDCost){
+		featureLength = 2;
+		feature = new T[featureLength];
+		double SATD = (T)rpcBestCU->getSATD();
+		double RDCost = (T)rpcBestCU->getTotalCost();
+		feature[0] =(T) SATD;
+		feature[1] =(T) RDCost;
+	}
 	else if (Type == NoneFeature){
 		//do nothing 
+	}
+	else if (Type == NewFeature || Type == NewFeature_1 || Type == NewFeature_2 || Type == NewFeature_3){
+		featureLength = 35*4;
+		feature = new T[featureLength];
+		int i = 0;
+		for (UInt uiFIdx = 0; uiFIdx < 4; uiFIdx++)
+		{
+			//g_InsightDataSet[uiDepth] << endl;
+			for (UInt uiMode = 0; uiMode < 35; uiMode++)
+			{
+				feature[i] = rpcBestCU->getSATDFeature(uiMode, uiFIdx);
+				i++;
+			}
+		}
+		return;
 	}
 	else
 	{
@@ -638,6 +860,9 @@ template void FormFeatureVector(TComDataCU*& rpcBestCU, UInt uiDepth, Pel*& feat
 template <typename T>
 void DoPrediction(UInt uiDepth, T* feature, Int featureLength, Double& label_predict, ModelType modelType, FeatureType featureType)
 {
+#if TIME_SYSTEM
+	clock_t clockStart = clock();
+#endif
 	if (modelType == SVM_0 || modelType == SVM_1 || modelType == SVM_2)
 	{
 		feature_node* input_vector = new feature_node[featureLength + 1];
@@ -666,7 +891,7 @@ void DoPrediction(UInt uiDepth, T* feature, Int featureLength, Double& label_pre
 		{
 		Feature_Vector.at<float>(0, i) = feature[i];
 		}
-		label_predict = CvSVM_model[uiDepth].predict(Feature_Vector);
+		label_predict = model_CvSVM[uiDepth][featureType].predict(Feature_Vector);
 		return;
 	}
 	else if (modelType == RTS_OpenCV)
@@ -676,7 +901,7 @@ void DoPrediction(UInt uiDepth, T* feature, Int featureLength, Double& label_pre
 		{
 			Feature_Vector.at<float>(0, i) = feature[i];
 		}
-		label_predict = CvRTrees_model[uiDepth].predict(Feature_Vector);
+		label_predict = model_CvRTrees[uiDepth][featureType].predict(Feature_Vector);
 		return;
 	}
 	else if (modelType == BayesDecision)
@@ -698,7 +923,15 @@ void DoPrediction(UInt uiDepth, T* feature, Int featureLength, Double& label_pre
 		label_predict = 0;
 		return;
 	}
+	else if (modelType == BayesNan){
+		label_predict = g_cBayesModel_Nan.predict(uiDepth,N_OBF);
+		return;
+	}
 	else return;
+
+#if TIME_SYSTEM
+	g_dTime_Prediction[uiDepth] += (Double)(clock() - clockStart) / CLOCKS_PER_SEC;
+#endif
 }
 template void DoPrediction(UInt uiDepth, Double* feature, Int featureLength, Double& label_predict, ModelType modelType, FeatureType featureType);
 template void DoPrediction(UInt uiDepth, Pel* feature, Int featureLength, Double& label_predict, ModelType modelType, FeatureType featureType);
@@ -731,6 +964,9 @@ void DoPrediction(UInt uiDepth, Int x_OBF, Double& label_predict, ModelType mode
 
 void OnlineTrain(Int uiDepth, ModelType modelType, FeatureType featureType)
 {
+#if TIME_SYSTEM
+	clock_t clockStart = clock();
+#endif
 	FeatureFormat featureFormat = getFeatureFormat(modelType);
 	String TrainingSetFileName = getTrainingSetFileName(uiDepth,modelType, featureFormat, featureType);
 	string modelname = getOffLineModelNmae(uiDepth, modelType, featureType);
@@ -738,6 +974,56 @@ void OnlineTrain(Int uiDepth, ModelType modelType, FeatureType featureType)
 		Double C = g_C[1];//0.000002
 		Double W_P=g_W_P[1];
 		Double W_N=g_W_N[1];
+		Bool useVarC = true;
+		if (featureType == NewFeature_1 && useVarC){
+			switch (uiDepth)
+			{
+			case 0:
+				W_P = 1;
+				W_N = 50;
+				break;
+			case 1:
+				W_P = 1;
+				W_N = 50;
+				break;
+			case 2:
+				W_P = 2;
+				W_N = 1;
+				break;
+			case 3:
+				W_P = 3;
+				W_N = 1;
+				break;
+			default:
+				break;
+			}
+		}
+
+		if (featureType == NewFeature_2 && useVarC){
+			switch (uiDepth)
+			{
+			case 0:
+				W_P = 1;
+				W_N = 50;
+				break;
+			case 1:
+				W_P = 1;
+				W_N = 50;
+				break;
+			case 2:
+				W_P = 2;
+				W_N = 1;
+				break;
+			case 3:
+				W_P = 3;
+				W_N = 1;
+				break;
+			default:
+				break;
+			}
+		}
+
+
 		string  command = "train";
 		command += " ";
 			command += " -s 2";
@@ -855,7 +1141,7 @@ void OnlineTrain(Int uiDepth, ModelType modelType, FeatureType featureType)
 			params.nu = 0.5;
 		}
 
-		CvSVM_model[uiDepth].train(FeatureMat, LabelMat, Mat(), Mat(), params);
+		model_CvSVM[uiDepth][featureType].train(FeatureMat, LabelMat, Mat(), Mat(), params);
 
 		finish = clock();
 		duration = (double)(finish - start) / CLOCKS_PER_SEC;
@@ -895,7 +1181,7 @@ void OnlineTrain(Int uiDepth, ModelType modelType, FeatureType featureType)
 		double duration;
 		start = clock();
 
-		rtree->train(FeatureMat, CV_ROW_SAMPLE, LabelMat,
+		model_CvRTrees[uiDepth][featureType].train(FeatureMat, CV_ROW_SAMPLE, LabelMat,
 			Mat(), Mat(), var_type, Mat(), params);
 		finish = clock();
 		duration = (double)(finish - start) / CLOCKS_PER_SEC;
@@ -953,17 +1239,12 @@ void OnlineTrain(Int uiDepth, ModelType modelType, FeatureType featureType)
 				}
 			}
 	} */
-
+#if TIME_SYSTEM
+	g_dTime_Training[uiDepth] += (Double)(clock() - clockStart) / CLOCKS_PER_SEC;
+#endif
 }
 
-void OnlineTrain_NewFeatureSystem(Int uiDepth){
-	Mat TrainingMat;
-	int Ns = g_iT[uiDepth]*(g_iSourceHeight>>uiDepth)*(g_iSourceWidth>>uiDepth);
-	int Nf = 100;
-	string fileName = getTrainingDataSetFileName(uiDepth);
-	LoadData(fileName, TrainingMat, Ns, Nf,1);
 
-}
 
 void countTFPN(int prediction, bool label, double*** & iVerResult, unsigned int uiDepth, ModelType modelType){
 	ResultType TFPN = NoResult;
@@ -1039,37 +1320,19 @@ void printPerformance(unsigned int uiDepth, ModelType modelType){
 }
 
 void outputPerformance(unsigned int uiDepth, ModelType modelType){
-	if (uiDepth == 0){
-		string parameter;
-		parameter += "\tC:\t";
-		parameter += to_string(g_C[0]);
-		parameter += "\t";
-		parameter += to_string(g_C[1]);
-		parameter += "\t";
-		parameter += to_string(g_C[2]);
-		parameter += "\n";
-		parameter += "\tW_P:\t";
-		parameter += to_string(g_W_P[0]);
-		parameter += "\t";
-		parameter += to_string(g_W_P[1]);
-		parameter += "\t";
-		parameter += to_string(g_W_P[2]);
-		parameter += "\n";
-		parameter += "\tW_N:\t";
-		parameter += to_string(g_W_N[0]);
-		parameter += "\t";
-		parameter += to_string(g_W_N[1]);
-		parameter += "\t";
-		parameter += to_string(g_W_N[2]);
-		parameter += "\n";
-		fprintf(g_pFile_Performance, (const char*)parameter.c_str());
-	}
+
 	//fprintf(g_pFile_Performance, "\t %d \t %5.1f/%5.1f \t%5.1f/%5.1f", (int)uiDepth, getSkipPrecision<double>(uiDepth, SVM_1) * 100, getSkipPrecision<double>(uiDepth, SVM_0) * 100, getSkipSensitivity<double>(uiDepth, SVM_1) * 100, getSkipSensitivity<double>(uiDepth, SVM_0) * 100);
 	//fprintf(g_pFile_Performance, "\t %5.1f/%5.1f \t %5.1f/%5.1f\n", getTermPrecision<double>(uiDepth, SVM_2) * 100, getTermPrecision<double>(uiDepth, SVM_0) * 100, getTermSensitivity<double>(uiDepth, SVM_2) * 100, getTermSensitivity<double>(uiDepth, SVM_0) * 100);
 	fprintf(g_pFile_Performance, "Depth: %d\t", (int)uiDepth);
 	fprintf(g_pFile_Performance, "Model: ");
 	fprintf(g_pFile_Performance, (char*)ModelType_Names[modelType]);
-	fprintf(g_pFile_Performance, "\t %5.1f \t %5.1f \t %5.1f \t %5.1f\n", getSkipPrecision<double>(uiDepth, modelType) * 100, getSkipSensitivity<double>(uiDepth, modelType) * 100, getTermPrecision<double>(uiDepth, modelType) * 100, getTermSensitivity<double>(uiDepth, modelType) * 100);
+	fprintf(g_pFile_Performance, "\t %5.1f \t %5.1f \t", getSkipPrecision<double>(uiDepth, modelType) * 100, getSkipSensitivity<double>(uiDepth, modelType) * 100);
+	if (g_bDecisionSwitch[uiDepth][modelType][Skip2Nx2N] == true)fprintf(g_pFile_Performance, "ON\t");
+	else fprintf(g_pFile_Performance, "OFF\t");
+	fprintf(g_pFile_Performance, "\t %5.1f \t %5.1f \t", getTermPrecision<double>(uiDepth, modelType) * 100, getTermSensitivity<double>(uiDepth, modelType) * 100);
+	if (g_bDecisionSwitch[uiDepth][modelType][TerminateCU] == true)fprintf(g_pFile_Performance, "ON\t");
+	else fprintf(g_pFile_Performance, "OFF\t");
+	fprintf(g_pFile_Performance, "\n");
 }
 
 
@@ -1639,201 +1902,158 @@ Int findPos(Double *data, Int right, Double tgt){
 	return left;
 }
 
-T3x3Filter::T3x3Filter() {
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
-      m_aiMask[i][j] = 0;
-    }
-  }
-  m_aiMask[1][1] = 1;
-}
-
-T3x3Filter::T3x3Filter(Int* aiMask) {
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
-      m_aiMask[i][j] = aiMask[i * 3 + j];
-    }
-  }
-}
-
-Pel* T3x3Filter::filter(Pel* pOrg, UInt uiWidth, UInt uiHeight, UInt uiStride) {
-  Pel* pFilt = (Pel*)xMalloc(Pel, uiWidth * uiHeight);
-  memset(pFilt, 0, sizeof(Pel)* uiWidth * uiHeight);
-  for (int y = 1; y < uiHeight - 1; y++) {
-    for (int x = 1; x < uiWidth - 1; x++) {
-      for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-          pFilt[y * uiWidth + x] += m_aiMask[i][j] * pOrg[(y - 1 + i) * uiStride + (x - 1 + j)];
-        }
-      }
-    }
-  }
-  return pFilt;
-}
-
-TMVFeature::TMVFeature() {
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 26; j++) {
-      m_adFeature[i][j] = 0;
-    }
-  }
-}
 
 TMVFeature* getTMVFeature(TComDataCU*& rpcBestCU) {
-  UInt uiLPelX = rpcBestCU->getCUPelX();
-  UInt uiTPelY = rpcBestCU->getCUPelY();
-  TComPicYuv* dataOrg = rpcBestCU->getPic()->getPicYuvOrg();
-  UInt uiStrideOrg = dataOrg->getStride(COMPONENT_Y);
-  TMVFeature* feature_x = new TMVFeature;
+	UInt uiLPelX = rpcBestCU->getCUPelX();
+	UInt uiTPelY = rpcBestCU->getCUPelY();
+	TComPicYuv* dataOrg = rpcBestCU->getPic()->getPicYuvOrg();
+	UInt uiStrideOrg = dataOrg->getStride(COMPONENT_Y);
+	TMVFeature* feature_x = new TMVFeature;
 
-  UInt uiCuWidth = rpcBestCU->getWidth(0);
-  UInt uiCuHeight = rpcBestCU->getHeight(0);
+	UInt uiCuWidth = rpcBestCU->getWidth(0);
+	UInt uiCuHeight = rpcBestCU->getHeight(0);
 
-  UInt uiNumFilt = 5;
-  Int aiOrigMask[9] = { 0, 0, 0, 0, 1, 0, 0, 0, 0 };
-  Int aiHorMask[9] = { 0, 0, 0, 1, 0, -1, 0, 0, 0 };
-  Int aiVerMask[9] = { 0, 1, 0, 0, 0, 0, 0, -1, 0 };
-  Int aiDiagMask[9] = { 0, 0, 1, 0, 0, 0, -1, 0, 0 };
-  Int aiAntDMask[9] = { 1, 0, 0, 0, 0, 0, 0, 0, -1 };
-  T3x3Filter cOrigFilt(aiOrigMask);
-  T3x3Filter cHorFilt(aiHorMask);
-  T3x3Filter cVerFilt(aiVerMask);
-  T3x3Filter cDiagFilt(aiDiagMask);
-  T3x3Filter cAntDFilt(aiAntDMask);
+	Int aiHorMask[9] = { 0, 0, 0, 1, 0, -1, 0, 0, 0 };
+	Int aiVerMask[9] = { 0, 1, 0, 0, 0, 0, 0, -1, 0 };
+	Int aiDiagMask[9] = { 0, 0, 1, 0, 0, 0, -1, 0, 0 };
+	Int aiAntDMask[9] = { 1, 0, 0, 0, 0, 0, 0, 0, -1 };
+	T3x3Filter cHorFilt(aiHorMask);
+	T3x3Filter cVerFilt(aiVerMask);
+	T3x3Filter cDiagFilt(aiDiagMask);
+	T3x3Filter cAntDFilt(aiAntDMask);
 
-  Pel* ppCuOrg = dataOrg->getAddr(COMPONENT_Y) + uiLPelX + uiTPelY * uiStrideOrg;
-  Pel** pppFilt = (Pel**)xMalloc(Pel*, uiNumFilt);
-  // 0: Horizontal, 1: Vertical, 2: Diagonal, 3: Anti-Diagonal
+	Pel* ppCuOrg = dataOrg->getAddr(COMPONENT_Y) + uiLPelX + uiTPelY * uiStrideOrg;
+	Pel** pppFilt = (Pel**)xMalloc(Pel*, 4);
+	// 0: Horizontal, 1: Vertical, 2: Diagonal, 3: Anti-Diagonal
 
-  pppFilt[0] = cOrigFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
-  pppFilt[1] = cHorFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
-  pppFilt[2] = cVerFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
-  pppFilt[3] = cDiagFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
-  pppFilt[4] = cAntDFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
+	pppFilt[0] = cHorFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
+	pppFilt[1] = cVerFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
+	pppFilt[2] = cDiagFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
+	pppFilt[3] = cAntDFilt.filter(ppCuOrg, uiCuWidth, uiCuHeight, uiStrideOrg);
 
-  for (int iFiltIdx = 0; iFiltIdx < uiNumFilt; iFiltIdx++) {
-    Double iMean;
-    Double iVariance;
-    Double* piDst = feature_x->m_adFeature[iFiltIdx];
-    Pel* piSrc = pppFilt[iFiltIdx];
-    // whole
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth, 0, uiCuWidth);
-    piDst[0] = iMean;
-    piDst[1] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth, 0, uiCuWidth);
-    // horizontal
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth >> 1, 0, uiCuWidth);
-    piDst[2] = iMean;
-    piDst[4] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth >> 1, 0, uiCuWidth);
+	for (int iFiltIdx = 0; iFiltIdx < 4; iFiltIdx++) {
+		Double iMean;
+		Double iVariance;
+		Double* piDst = feature_x->m_adFeature[iFiltIdx];
+		Pel* piSrc = pppFilt[iFiltIdx];
+		// whole
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth, 0, uiCuWidth);
+		piDst[0] = iMean;
+		piDst[1] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth, 0, uiCuWidth);
+		// horizontal
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth >> 1, 0, uiCuWidth);
+		piDst[2] = iMean;
+		piDst[4] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth >> 1, 0, uiCuWidth);
 
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, uiCuWidth >> 1, uiCuWidth, 0, uiCuWidth);
-    piDst[3] = iMean;
-    piDst[5] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, uiCuWidth >> 1, uiCuWidth, 0, uiCuWidth);
-    // vertical
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth, 0, uiCuWidth >> 1);
-    piDst[6] = iMean;
-    piDst[8] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth, 0, uiCuWidth >> 1);
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, uiCuWidth >> 1, uiCuWidth, 0, uiCuWidth);
+		piDst[3] = iMean;
+		piDst[5] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, uiCuWidth >> 1, uiCuWidth, 0, uiCuWidth);
+		// vertical
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth, 0, uiCuWidth >> 1);
+		piDst[6] = iMean;
+		piDst[8] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth, 0, uiCuWidth >> 1);
 
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth, uiCuWidth >> 1, uiCuWidth);
-    piDst[7] = iMean;
-    piDst[9] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth, uiCuWidth >> 1, uiCuWidth);
-    // Diagonal
-    iMean = 0;
-    for (Int i = 0; i < uiCuWidth; i++) {
-      for (Int j = 0; j < uiCuWidth - i; j++) {
-        iMean += piSrc[i * uiCuWidth + j];
-      }
-    }
-    iMean /= (uiCuWidth * uiCuWidth >> 1);
-    piDst[10] = iMean;
-    iVariance = 0;
-    for (Int i = 0; i < uiCuWidth; i++) {
-      for (Int j = 0; j < uiCuWidth - i; j++) {
-        Int tmp = piSrc[i * uiCuWidth + j] - iMean;
-        iVariance = tmp > 0 ? tmp : -tmp;
-      }
-    }
-    iVariance /= (uiCuWidth * uiCuWidth >> 1);
-    piDst[12] = iVariance;
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth, uiCuWidth >> 1, uiCuWidth);
+		piDst[7] = iMean;
+		piDst[9] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth, uiCuWidth >> 1, uiCuWidth);
+		// Diagonal
+		iMean = 0;
+		for (Int i = 0; i < uiCuWidth; i++) {
+			for (Int j = 0; j < uiCuWidth - i; j++) {
+				iMean += piSrc[i * uiCuWidth + j];
+			}
+		}
+		iMean /= (uiCuWidth * uiCuWidth >> 1);
+		piDst[10] = iMean;
+		iVariance = 0;
+		for (Int i = 0; i < uiCuWidth; i++) {
+			for (Int j = 0; j < uiCuWidth - i; j++) {
+				Int tmp = piSrc[i * uiCuWidth + j] - iMean;
+				iVariance = tmp > 0 ? tmp : -tmp;
+			}
+		}
+		iVariance /= (uiCuWidth * uiCuWidth >> 1);
+		piDst[12] = iVariance;
 
-    iMean = 0;
-    for (Int i = 0; i < uiCuWidth; i++) {
-      for (Int j = uiCuWidth - i - 1; j < uiCuWidth; j++) {
-        iMean += piSrc[i * uiCuWidth + j];
-      }
-    }
-    iMean /= (uiCuWidth * uiCuWidth >> 1);
-    piDst[11] = iMean;
-    iVariance = 0;
-    for (Int i = 0; i < uiCuWidth; i++) {
-      for (Int j = uiCuWidth - i - 1; j < uiCuWidth; j++) {
-        Int tmp = piSrc[i * uiCuWidth + j] - iMean;
-        iVariance = tmp > 0 ? tmp : -tmp;
-      }
-    }
-    iVariance /= (uiCuWidth * uiCuWidth >> 1);
-    piDst[13] = iVariance;
+		iMean = 0;
+		for (Int i = 0; i < uiCuWidth; i++) {
+			for (Int j = uiCuWidth - i - 1; j < uiCuWidth; j++) {
+				iMean += piSrc[i * uiCuWidth + j];
+			}
+		}
+		iMean /= (uiCuWidth * uiCuWidth >> 1);
+		piDst[11] = iMean;
+		iVariance = 0;
+		for (Int i = 0; i < uiCuWidth; i++) {
+			for (Int j = uiCuWidth - i - 1; j < uiCuWidth; j++) {
+				Int tmp = piSrc[i * uiCuWidth + j] - iMean;
+				iVariance = tmp > 0 ? tmp : -tmp;
+			}
+		}
+		iVariance /= (uiCuWidth * uiCuWidth >> 1);
+		piDst[13] = iVariance;
 
-    // Anti-Diagonal
-    iMean = 0;
-    for (Int i = 0; i < uiCuWidth; i++) {
-      for (Int j = i; j < uiCuWidth; j++) {
-        iMean += piSrc[i * uiCuWidth + j];
-      }
-    }
-    iMean /= (uiCuWidth * uiCuWidth >> 1);
-    piDst[14] = iMean;
-    iVariance = 0;
-    for (Int i = 0; i < uiCuWidth; i++) {
-      for (Int j = i; j < uiCuWidth; j++) {
-        Int tmp = piSrc[i * uiCuWidth + j] - iMean;
-        iVariance = tmp > 0 ? tmp : -tmp;
-      }
-    }
-    iVariance /= (uiCuWidth * uiCuWidth >> 1);
-    piDst[16] = iVariance;
+		// Anti-Diagonal
+		iMean = 0;
+		for (Int i = 0; i < uiCuWidth; i++) {
+			for (Int j = i; j < uiCuWidth; j++) {
+				iMean += piSrc[i * uiCuWidth + j];
+			}
+		}
+		iMean /= (uiCuWidth * uiCuWidth >> 1);
+		piDst[14] = iMean;
+		iVariance = 0;
+		for (Int i = 0; i < uiCuWidth; i++) {
+			for (Int j = i; j < uiCuWidth; j++) {
+				Int tmp = piSrc[i * uiCuWidth + j] - iMean;
+				iVariance = tmp > 0 ? tmp : -tmp;
+			}
+		}
+		iVariance /= (uiCuWidth * uiCuWidth >> 1);
+		piDst[16] = iVariance;
 
-    iMean = 0;
-    for (Int i = 0; i < uiCuWidth; i++) {
-      for (Int j = 0; j < i + 1; j++) {
-        iMean += piSrc[i * uiCuWidth + j];
-      }
-    }
-    iMean /= (uiCuWidth * uiCuWidth >> 1);
-    piDst[15] = iMean;
-    iVariance = 0;
-    for (Int i = 0; i < uiCuWidth; i++) {
-      for (Int j = 0; j < i + 1; j++) {
-        Int tmp = piSrc[i * uiCuWidth + j] - iMean;
-        iVariance = tmp > 0 ? tmp : -tmp;
-      }
-    }
-    iVariance /= (uiCuWidth * uiCuWidth >> 1);
-    piDst[17] = iVariance;
+		iMean = 0;
+		for (Int i = 0; i < uiCuWidth; i++) {
+			for (Int j = 0; j < i + 1; j++) {
+				iMean += piSrc[i * uiCuWidth + j];
+			}
+		}
+		iMean /= (uiCuWidth * uiCuWidth >> 1);
+		piDst[15] = iMean;
+		iVariance = 0;
+		for (Int i = 0; i < uiCuWidth; i++) {
+			for (Int j = 0; j < i + 1; j++) {
+				Int tmp = piSrc[i * uiCuWidth + j] - iMean;
+				iVariance = tmp > 0 ? tmp : -tmp;
+			}
+		}
+		iVariance /= (uiCuWidth * uiCuWidth >> 1);
+		piDst[17] = iVariance;
 
-    // Quadratic
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth >> 1, 0, uiCuWidth >> 1);
-    piDst[18] = iMean;
-    piDst[22] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth >> 1, 0, uiCuWidth >> 1);
+		// Quadratic
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth >> 1, 0, uiCuWidth >> 1);
+		piDst[18] = iMean;
+		piDst[22] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth >> 1, 0, uiCuWidth >> 1);
 
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth >> 1, uiCuWidth >> 1, uiCuWidth);
-    piDst[19] = iMean;
-    piDst[23] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth >> 1, uiCuWidth >> 1, uiCuWidth);
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, 0, uiCuWidth >> 1, uiCuWidth >> 1, uiCuWidth);
+		piDst[19] = iMean;
+		piDst[23] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, 0, uiCuWidth >> 1, uiCuWidth >> 1, uiCuWidth);
 
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, uiCuWidth >> 1, uiCuWidth, 0, uiCuWidth);
-    piDst[20] = iMean;
-    piDst[24] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, uiCuWidth >> 1, uiCuWidth, 0, uiCuWidth);
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, uiCuWidth >> 1, uiCuWidth, 0, uiCuWidth);
+		piDst[20] = iMean;
+		piDst[24] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, uiCuWidth >> 1, uiCuWidth, 0, uiCuWidth);
 
-    iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, uiCuWidth >> 1, uiCuWidth, uiCuWidth >> 1, uiCuWidth);
-    piDst[21] = iMean;
-    piDst[25] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, uiCuWidth >> 1, uiCuWidth, uiCuWidth >> 1, uiCuWidth);
-  }
+		iMean = TMVFeature::getSubBlockMean(piSrc, uiCuWidth, uiCuWidth >> 1, uiCuWidth, uiCuWidth >> 1, uiCuWidth);
+		piDst[21] = iMean;
+		piDst[25] = TMVFeature::getSubBlockVariance(piSrc, iMean, uiCuWidth, uiCuWidth >> 1, uiCuWidth, uiCuWidth >> 1, uiCuWidth);
+	}
 
 
-  for (int idx = 0; idx < uiNumFilt; idx++) {
-    xFree(pppFilt[idx]);
-  }
+	for (int idx = 0; idx < 4; idx++) {
+		xFree(pppFilt[idx]);
+	}
 
-  xFree(pppFilt);
+	xFree(pppFilt);
 
-  return feature_x;
+	return feature_x;
 }

@@ -1311,6 +1311,7 @@ Bool TAppEncCfg::parseCfg( Int argc, Char* argv[] )
   g_iQP = m_fQP;
   g_iSourceWidth = m_iSourceWidth;
   g_iSourceHeight = m_iSourceHeight;
+  g_iFrameToBeEncoded = m_framesToBeEncoded;
 #endif
 
 

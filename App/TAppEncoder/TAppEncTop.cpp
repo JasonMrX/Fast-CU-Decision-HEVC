@@ -46,8 +46,6 @@
 
 #include "TAppEncTop.h"
 #include "TLibEncoder/AnnexBwrite.h"
-
-
 #include "TLibCommon/tools_YS.h"
 using namespace std;
 

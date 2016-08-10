@@ -52,10 +52,6 @@ extern ofstream g_filePerformance;
 #endif
 
 
-#if SVM_ONLINE_TRAIN  //  extern declaration of global model objects 
-extern CvSVM*  CvSVM_model;
-extern CvRTrees* CvRTrees_model;
-#endif
 
 
 
@@ -358,9 +354,9 @@ Void TEncTop::ReportPerformance(UInt uiDepth)
 
 #endif
 		for (int i = 0; i < NUM_MODELTYPE; i++){
-			if (g_bModelSwitch[i] == true&&bPrintPerformance)printPerformance(uiDepth, (ModelType)i);
-			if (g_bModelSwitch[i] == true)outputPerformance(uiDepth, (ModelType)i);
 			if (g_bModelSwitch[i] == true)SetDecisionSwitch(uiDepth, (ModelType)i);
+			if (g_bModelSwitch[i] == true && bPrintPerformance)printPerformance(uiDepth, (ModelType)i);
+			if (g_bModelSwitch[i] == true)outputPerformance(uiDepth, (ModelType)i);
 		}
 }
 

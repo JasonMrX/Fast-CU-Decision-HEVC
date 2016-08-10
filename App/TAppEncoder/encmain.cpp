@@ -56,11 +56,6 @@ ofstream OBFFile;
 #include "../Lib/TLibCommon/Debug.h"
 
 
-#if SVM_ONLINE_TRAIN
-CvSVM*  CvSVM_model =new CvSVM[4];
-CvRTrees* CvRTrees_model = new CvRTrees[4]; 
-#endif
-
 #if CREAT_CDM
 MatND** MatCDM;
 #endif 
@@ -83,7 +78,7 @@ int main(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-	cout << "Fuck" << endl<< endl;///////
+
 #if CREAT_CDM
 	MatCDM = new MatND*[4];
 #endif 
@@ -92,6 +87,14 @@ int main(int argc, char* argv[])
   FILE* pFileET = fopen("summaryTotal.txt", "at");
   FILE* pFile_Analysis = fopen("Analysis.txt", "at");
 #endif	
+
+
+#if TIME_SYSTEM  // reset
+  resetTimeSystem();
+#endif
+
+
+
 
  TAppEncTop  cTAppEncTop;
   // print information
@@ -162,6 +165,13 @@ int main(int argc, char* argv[])
   dResult = (Double)(clock()-lBefore) / CLOCKS_PER_SEC;
   g_dET = dResult;
   printf("\n Total Time: %12.3f sec.\n", dResult);
+
+#if TIME_SYSTEM   // print 
+g_dTime_Total = dResult;
+printTimeSystem();
+#endif
+
+
 #if  SAVE_ENCODING_RESULT
   fprintf(pFileET,"\t%f\n", dResult);
 #if OBSERVATION
@@ -174,6 +184,10 @@ int main(int argc, char* argv[])
   fclose(pFile_Analysis);
   fclose(pFileET);
 #endif
+
+
+
+
   // destroy application encoder class
   cTAppEncTop.destroy();
 
@@ -196,7 +210,14 @@ int main(int argc, char* argv[])
   delete[] MatCDM;
 #endif 
 
+
+
+
 deleteYSGlobal();
+
+
+
+
 
 #if OBSERVATION
  system("pause");
