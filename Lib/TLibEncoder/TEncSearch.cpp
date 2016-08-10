@@ -2398,9 +2398,10 @@ TEncSearch::estIntraPredLumaQT(
 #if TIME_SYSTEM
 			clock_t clockStart = clock();
 #endif
+      Double dRMode = (Double)(iModeBits >> 2) * sqrtLambdaForFirstPass;
 			for (int uiFeatureIdx = 0; uiFeatureIdx < 4; uiFeatureIdx++)
 			{
-				Double costQuad = (Double)distParamQuad[uiFeatureIdx].DistFunc(&distParamQuad[uiFeatureIdx]) + (Double)(iModeBits >> 2) * sqrtLambdaForFirstPass;
+				Double costQuad = (Double)distParamQuad[uiFeatureIdx].DistFunc(&distParamQuad[uiFeatureIdx]) + dRMode;
 				assert(uiMode < 35);
 				pcCU->setSATDFeature(uiMode, uiFeatureIdx, costQuad);
 			}
