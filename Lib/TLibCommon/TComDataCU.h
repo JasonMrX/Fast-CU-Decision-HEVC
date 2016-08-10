@@ -143,6 +143,7 @@ private:
 #if MODIFICATION_JX
 	Double			m_adSATDFeatures[35][4];
   Double      m_dSATDRatio;
+  Double      m_dSATDDiff;
 #endif
 
 
@@ -278,8 +279,9 @@ public:
 #if MODIFICATION_JX
 	Void      setSATDFeature(UInt uiModeIdx, UInt uiFeatureIdx, Double dSATD) { m_adSATDFeatures[uiModeIdx][uiFeatureIdx] = dSATD; }
 	Double    getSATDFeature(UInt uiModeIdx, UInt uiFeatureIdx) { return m_adSATDFeatures[uiModeIdx][uiFeatureIdx]; }
-  Void      calSATDRatio();
+  Void      processSATDFeature();
   Double    getSATDRatio() { return m_dSATDRatio; }
+  Double    getSATDDiff()  { return m_dSATDDiff; }
 #endif
 
 

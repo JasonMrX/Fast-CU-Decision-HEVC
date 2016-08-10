@@ -3415,7 +3415,7 @@ UInt TComDataCU::getCoefScanIdx(const UInt uiAbsPartIdx, const UInt uiWidth, con
 
 #if MODIFICATION_JX
 
-Void TComDataCU::calSATDRatio()
+Void TComDataCU::processSATDFeature()
 {
   Double dSumMin = 0;
   Double dMinSum = INT_MAX;
@@ -3431,9 +3431,11 @@ Void TComDataCU::calSATDRatio()
     dSumMin += adMinSumSub[i];
   }
   m_dSATDRatio = dSumMin / dMinSum;
+  m_dSATDDiff = dMinSum - dSumMin;
   //printf("%lf \n", m_dSATDRatio);
   //system("pause");
   assert(m_dSATDRatio >= 0 && m_dSATDRatio <= 1);
+  assert(m_dSATDDiff >= 0);
 }
 
 #endif
