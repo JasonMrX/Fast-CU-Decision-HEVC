@@ -566,10 +566,10 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 
 #if OUTPUT_INSIGHTDATA  // POC X Y
 	if (currentState==Training&&!bBoundary){
-		//cout << g_iPOC;
-		//g_InsightDataSet[uiDepth] <<(int)g_iPOC << '\t';
-		//g_InsightDataSet[uiDepth] << uiLPelX << '\t';
-		//g_InsightDataSet[uiDepth] << uiTPelY << '\t';
+		cout << g_iPOC;
+		g_InsightDataSet[uiDepth] <<(int)g_iPOC << '\t';
+		g_InsightDataSet[uiDepth] << uiLPelX << '\t';
+		g_InsightDataSet[uiDepth] << uiTPelY << '\t';
 	}
 #endif
 #if MODIFICATION_YS
@@ -643,7 +643,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 
 #if OUTPUT_INSIGHTDATA  // N_outlier
 	if (currentState==Training&&!bBoundary){
-		//g_InsightDataSet[uiDepth] << N_Outlier << '\t';  // RDCost 2Nx2N
+		g_InsightDataSet[uiDepth] << N_Outlier << '\t';  // RDCost 2Nx2N
 	}
 #endif
 
@@ -1103,9 +1103,9 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 					  }
 #if OUTPUT_INSIGHTDATA  // 2Nx2N SATD  RDcost IPM 
 					  if (currentState==Training&&!bBoundary){
-						  //g_InsightDataSet[uiDepth] << rpcBestCU->getSATD() << '\t';
-						  //g_InsightDataSet[uiDepth] << rpcBestCU->getTotalCost() << '\t';  // RDCost 2Nx2N
-					      g_InsightDataSet[uiDepth] << (Int)rpcBestCU->getIntraDir(CHANNEL_TYPE_LUMA,0)<< '\t';  // RDCost 2Nx2N
+						  g_InsightDataSet[uiDepth] << rpcBestCU->getSATD() << '\t';
+						  g_InsightDataSet[uiDepth] << rpcBestCU->getTotalCost() << '\t';  // RDCost 2Nx2N
+					    g_InsightDataSet[uiDepth] << (Int)rpcBestCU->getIntraDir(CHANNEL_TYPE_LUMA,0)<< '\t';  // RDCost 2Nx2N
 					  }
 #endif
 ///////////////////////////////////////////////////// form feature vectors and do predicitons 
@@ -1215,8 +1215,8 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 							  }
 #if OUTPUT_INSIGHTDATA  // NxN  SATD RDCost
 							  if (currentState==Training&&!bBoundary){
-								  //g_InsightDataSet[3] << BestSATD_NxN << '\t';
-								 // g_InsightDataSet[3] << J1 << '\t';  // RDCost NxN
+								  g_InsightDataSet[3] << BestSATD_NxN << '\t';
+								  g_InsightDataSet[3] << J1 << '\t';  // RDCost NxN
 
 							  }
 #endif
@@ -1271,7 +1271,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 	  }
 #if OUTPUT_INSIGHTDATA   // depth==3 JBest Label
 		  if (uiDepth==3  && currentState==Training&&!bBoundary){
-			  //g_InsightDataSet[3] << rpcBestCU->getTotalCost() << '\t';  // RDCost 2Nx2N
+			  g_InsightDataSet[3] << rpcBestCU->getTotalCost() << '\t';  // RDCost 2Nx2N
 			  g_InsightDataSet[3] << bPartition_True << '\n';
 		  }
 #endif
@@ -1498,10 +1498,10 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 			  bPartition_Do = bPartition_True;
 #if OUTPUT_INSIGHTDATA  // J0 J1 JBest Label 
 			  if (currentState==Training&&!bBoundary){
-				  //g_InsightDataSet[uiDepth] << J0 << '\t';
-				  //g_InsightDataSet[uiDepth] << J1 << '\t';
-				  //g_InsightDataSet[uiDepth] << rpcBestCU->getTotalCost() << '\t';
-				  //g_InsightDataSet[uiDepth] << bPartition_True << '\t';
+				  g_InsightDataSet[uiDepth] << J0 << '\t';
+				  g_InsightDataSet[uiDepth] << J1 << '\t';
+				  g_InsightDataSet[uiDepth] << rpcBestCU->getTotalCost() << '\t';
+				  g_InsightDataSet[uiDepth] << bPartition_True << '\t';
 			  }
 #endif
 
@@ -1620,9 +1620,9 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 
 #if OUTPUT_INSIGHTDATA  // OBF
 			 for (int i = 0; i < featureLength_1; i++){
-				// g_InsightDataSet[uiDepth] << feature_1[i] << '\t';
+				 g_InsightDataSet[uiDepth] << feature_1[i] << '\t';
 			 }
-				 //g_InsightDataSet[uiDepth] << endl;
+			 //g_InsightDataSet[uiDepth] << endl;
 #endif
 
 
@@ -2166,11 +2166,10 @@ Bool TEncCu::xCheckRDCostIntra(
 			  g_InsightDataSet[uiDepth] << rpcTempCU->getSATDFeature(uiMode, uiFIdx) << '\t';
 
 		  }
-
-      g_InsightDataSet[uiDepth] << endl;
+      //g_InsightDataSet[uiDepth] << endl;
 	  }
-    g_InsightDataSet[uiDepth] << rpcTempCU->getSATDRatio() << endl;
-    g_InsightDataSet[uiDepth] << rpcTempCU->getSATDDiff() << endl;
+    g_InsightDataSet[uiDepth] << rpcTempCU->getSATDRatio() << "\t"; //<< endl;
+    g_InsightDataSet[uiDepth] << rpcTempCU->getSATDDiff() << "\t";// endl;
   }
 #endif
 #endif
